@@ -1426,49 +1426,71 @@ class RandomFlip:
         self.direction = direction
         self.flip_idx = flip_idx
 
-    def __call__(self, labels):
-        """
-        Applies random flip to an image and updates any instances like bounding boxes or keypoints accordingly.
+    # BEGIN CUSTOM MODIFICATION BY [José Carlos Reyes Hernández] - [20/02/24]
+        # Reason for modification:
+        # This modification adjusts class labels for orientation-specific classes when a horizontal flip is applied
+        # to ensure the consistency of the training data. This is crucial for models that rely on the orientation
+        # of objects to make accurate predictions.
 
-        This method randomly flips the input image either horizontally or vertically based on the initialized
-        probability and direction. It also updates the corresponding instances (bounding boxes, keypoints) to
-        match the flipped image.
+    def _call_(self, labels):
+        """
+        Applies a random flip to an image and updates any associated instances like bounding boxes or keypoints accordingly.
+        This method has been modified to also adjust the class labels in case a horizontal flip is applied, ensuring that
+        orientation-specific classes are correctly updated (e.g., left side view to right side view and vice versa).
 
         Args:
-            labels (Dict): A dictionary containing the following keys:
-                'img' (numpy.ndarray): The image to be flipped.
-                'instances' (ultralytics.utils.instance.Instances): An object containing bounding boxes and
-                    optionally keypoints.
+            labels (dict): A dictionary containing keys 'img', 'cls', and 'instances'. 
+                        'img' is the image to be flipped, 'cls' contains the class labels for each instance in the image,
+                        and 'instances' is an object containing bounding boxes and, optionally, keypoints.
 
         Returns:
-            (Dict): The same dictionary with the flipped image and updated instances:
-                'img' (numpy.ndarray): The flipped image.
-                'instances' (ultralytics.utils.instance.Instances): Updated instances matching the flipped image.
-
-        Examples:
-            >>> labels = {"img": np.random.rand(640, 640, 3), "instances": Instances(...)}
-            >>> random_flip = RandomFlip(p=0.5, direction="horizontal")
-            >>> flipped_labels = random_flip(labels)
+            dict: The same dictionary with the flipped image, updated instances, and adjusted class labels under the
+                'img', 'instances', and 'cls' keys, respectively.
         """
         img = labels["img"]
+        # Retrieve the class labels for instances.
+        classes = labels["cls"]
+        # Extract the 'instances' object which contains bounding boxes and potentially keypoints.
         instances = labels.pop("instances")
+        # Convert bounding boxes to 'xywh' format for consistent processing.
         instances.convert_bbox(format="xywh")
+        # Determine the height and width of the image for flipping operations.
         h, w = img.shape[:2]
+        # Normalize height and width if instances are normalized.
         h = 1 if instances.normalized else h
         w = 1 if instances.normalized else w
+        
+        # Flag to track if a horizontal flip has been applied.
+        flipped_horizontally = False
 
-        # Flip up-down
+        # Apply vertical flip with a specified probability.
         if self.direction == "vertical" and random.random() < self.p:
             img = np.flipud(img)
             instances.flipud(h)
+        # Apply horizontal flip with a specified probability.
         if self.direction == "horizontal" and random.random() < self.p:
             img = np.fliplr(img)
             instances.fliplr(w)
-            # For keypoints
+            flipped_horizontally = True
+            # Adjust keypoints if necessary and provided.
             if self.flip_idx is not None and instances.keypoints is not None:
                 instances.keypoints = np.ascontiguousarray(instances.keypoints[:, self.flip_idx, :])
+        
+        # Adjust the class labels if a horizontal flip has been applied.
+        if flipped_horizontally:
+            # Define the mapping for class adjustments on horizontal flip.
+            class_mapping = {0: 1, 1: 0, 3: 4, 4: 3}
+            for i, label in enumerate(classes):
+                # Convert label to integer for mapping check.
+                label_id = int(label)
+                # Update the class label based on the predefined mapping.
+                if label_id in class_mapping:
+                    classes[i] = class_mapping[label_id]
+
+        # Update the labels dictionary with the flipped image, adjusted instances, and class labels.
         labels["img"] = np.ascontiguousarray(img)
         labels["instances"] = instances
+        labels["cls"] = classes
         return labels
 
 
