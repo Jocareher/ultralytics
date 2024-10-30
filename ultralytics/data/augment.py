@@ -1432,7 +1432,7 @@ class RandomFlip:
         # to ensure the consistency of the training data. This is crucial for models that rely on the orientation
         # of objects to make accurate predictions.
 
-    def _call_(self, labels):
+    def __call__(self, labels):
         """
         Applies a random flip to an image and updates any associated instances like bounding boxes or keypoints accordingly.
         This method has been modified to also adjust the class labels in case a horizontal flip is applied, ensuring that
