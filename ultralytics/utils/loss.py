@@ -530,6 +530,10 @@ class v8PoseLoss(v8DetectionLoss):
         y[..., :2] *= 2.0
         y[..., 0] += anchor_points[:, [0]] - 0.5
         y[..., 1] += anchor_points[:, [1]] - 0.5
+        # Decode visibility as binary (0 = occluded, 1 = visible)
+        if y.shape[-1] == 3:  # Apply only if there is visibility flag
+            y[..., 2] = (y[..., 2].sigmoid() > 0.5).float()  # Threshold for classifying visibility
+
         return y
 
     def calculate_keypoints_loss(
