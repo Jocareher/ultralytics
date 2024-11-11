@@ -244,7 +244,7 @@ class Pose(Detect):
         return torch.cat([x, pred_kpt], 1) if self.export else (torch.cat([x[0], pred_kpt], 1), (x[1], kpt))
 
     def kpts_decode(self, bs, kpts):
-        """Decodes keypoints and predicts visibility as a binary classification (ocluido vs visible)."""
+        """Decodes keypoints and predicts visibility as a binary classification (occluded vs visible)."""
         ndim = self.kpt_shape[1]
         if ndim == 3:
             print("\nWarning: Visibility flag is included in the predictions.")
