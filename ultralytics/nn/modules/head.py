@@ -244,27 +244,30 @@ class Pose(Detect):
         return torch.cat([x, pred_kpt], 1) if self.export else (torch.cat([x[0], pred_kpt], 1), (x[1], kpt))
 
     def kpts_decode(self, bs, kpts):
-        """Decodes keypoints."""
+        """Decodes keypoints and predicts visibility as a binary classification (ocluido vs visible)."""
         ndim = self.kpt_shape[1]
         if ndim == 3:
             print("\nWarning: Visibility flag is included in the predictions.")
-            
-        if self.export:  # required for TFLite export to avoid 'PLACEHOLDER_FOR_GREATER_OP_CODES' bug
-            y = kpts.view(bs, *self.kpt_shape, -1)
-            a = (y[:, :, :2] * 2.0 + (self.anchors - 0.5)) * self.strides
-            if ndim == 3:
-                a = torch.cat((a, y[:, :, 2:3].sigmoid()), 2)
-            return a.view(bs, self.nk, -1)
-        else:
-            y = kpts.clone()
-            if ndim == 3:
-                y[:, 2::3] = y[:, 2::3].sigmoid()  # sigmoid (WARNING: inplace .sigmoid_() Apple MPS bug)
-                # Additional check to ensure visibility flag values are within [0, 1]
-                if not (0 <= y[:, 2::3].min() and y[:, 2::3].max() <= 1):
-                    print("Warning: Visibility flag is out of expected range [0, 1] after sigmoid.")
-            y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
-            y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
-            return y
+
+        y = kpts.clone()
+        if ndim == 3:
+            # Apply sigmoid to the visibility flag predictions
+            y[:, 2::3] = y[:, 2::3].sigmoid()
+
+            # Classify visibility: 0 = occluded, 1 = visible (threshold at 0.5)
+            visibility_pred = (y[:, 2::3] >= 0.5).float()
+
+            # Additional check to ensure visibility flag values are within [0, 1]
+            if not (0 <= y[:, 2::3].min() and y[:, 2::3].max() <= 1):
+                print("Warning: Visibility flag is out of expected range [0, 1] after sigmoid.")
+
+            # Replace the visibility values with binary classification (0 or 1)
+            y[:, 2::3] = visibility_pred
+
+        # Decode x, y coordinates
+        y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
+        y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
+        return y
 
 
 class Classify(nn.Module):
