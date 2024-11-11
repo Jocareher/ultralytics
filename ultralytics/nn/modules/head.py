@@ -246,6 +246,9 @@ class Pose(Detect):
     def kpts_decode(self, bs, kpts):
         """Decodes keypoints."""
         ndim = self.kpt_shape[1]
+        if ndim == 3:
+            print("\nWarning: Visibility flag is included in the predictions.")
+            
         if self.export:  # required for TFLite export to avoid 'PLACEHOLDER_FOR_GREATER_OP_CODES' bug
             y = kpts.view(bs, *self.kpt_shape, -1)
             a = (y[:, :, :2] * 2.0 + (self.anchors - 0.5)) * self.strides
@@ -256,6 +259,9 @@ class Pose(Detect):
             y = kpts.clone()
             if ndim == 3:
                 y[:, 2::3] = y[:, 2::3].sigmoid()  # sigmoid (WARNING: inplace .sigmoid_() Apple MPS bug)
+                # Additional check to ensure visibility flag values are within [0, 1]
+                if not (0 <= y[:, 2::3].min() and y[:, 2::3].max() <= 1):
+                    print("Warning: Visibility flag is out of expected range [0, 1] after sigmoid.")
             y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
             y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
             return y

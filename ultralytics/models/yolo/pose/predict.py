@@ -47,10 +47,21 @@ class PosePredictor(DetectionPredictor):
 
         results = []
         for pred, orig_img, img_path in zip(preds, orig_imgs, self.batch[0]):
+            # Scale the bboxes
             pred[:, :4] = ops.scale_boxes(img.shape[2:], pred[:, :4], orig_img.shape).round()
+            
+            # Process the keypoints
             pred_kpts = pred[:, 6:].view(len(pred), *self.model.kpt_shape) if len(pred) else pred[:, 6:]
             pred_kpts = ops.scale_coords(img.shape[2:], pred_kpts, orig_img.shape)
+
+            # Verify that each keypoint has visibility flag 
+            if pred_kpts.shape[-1] == 3:  # Check if last dimension is 3, meaning (x, y, visibility)
+                LOGGER.info("Visibility flag is included for each keypoint.")
+            else:
+                LOGGER.warning("Visibility flag is NOT included for each keypoint.")
+
             results.append(
                 Results(orig_img, path=img_path, names=self.model.names, boxes=pred[:, :6], keypoints=pred_kpts)
             )
         return results
+
