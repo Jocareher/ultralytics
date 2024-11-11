@@ -250,24 +250,19 @@ class Pose(Detect):
             print("\nWarning: Visibility flag is included in the predictions.")
 
         y = kpts.clone()
-        if ndim == 3:
-            # Apply sigmoid to the visibility flag predictions
-            y[:, 2::3] = y[:, 2::3].sigmoid()
-
-            # Classify visibility: 0 = occluded, 1 = visible (threshold at 0.5)
-            visibility_pred = (y[:, 2::3] >= 0.5).float()
-
-            # Additional check to ensure visibility flag values are within [0, 1]
-            if not (0 <= y[:, 2::3].min() and y[:, 2::3].max() <= 1):
-                print("Warning: Visibility flag is out of expected range [0, 1] after sigmoid.")
-
-            # Replace the visibility values with binary classification (0 or 1)
-            y[:, 2::3] = visibility_pred
-
-        # Decode x, y coordinates
-        y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
-        y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
-        return y
+        
+        if self.export:  # required for TFLite export to avoid 'PLACEHOLDER_FOR_GREATER_OP_CODES' bug
+            y = kpts.view(bs, *self.kpt_shape, -1)
+            a = (y[:, :, :2] * 2.0 + (self.anchors - 0.5)) * self.strides
+            if ndim == 3:
+                a = torch.cat((a, y[:, :, 2:3].sigmoid()), 2)  # Apply sigmoid to visibility predictions
+            return a.view(bs, self.nk, -1)
+        else:
+            if ndim == 3:
+                y[:, 2::3] = y[:, 2::3].sigmoid()  # Apply sigmoid to visibility predictions
+            y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
+            y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
+            return y
 
 
 class Classify(nn.Module):
