@@ -253,9 +253,10 @@ class Pose(Detect):
         """Decodes keypoints."""
         ndim = self.kpt_shape[1]
         if self.export:
-            # Inference/Export mode
-            if self.format in {"tflite", "edgetpu"}:
-                # Required for TFLite export to avoid 'PLACEHOLDER_FOR_GREATER_OP_CODES' bug
+            if self.format in {
+                "tflite",
+                "edgetpu",
+            }:  # required for TFLite export to avoid 'PLACEHOLDER_FOR_GREATER_OP_CODES' bug
                 # Precompute normalization factor to increase numerical stability
                 y = kpts.view(bs, *self.kpt_shape, -1)
                 grid_h, grid_w = self.shape[2], self.shape[3]
@@ -267,19 +268,12 @@ class Pose(Detect):
                 y = kpts.view(bs, *self.kpt_shape, -1)
                 a = (y[:, :, :2] * 2.0 + (self.anchors - 0.5)) * self.strides
             if ndim == 3:
-                a = torch.cat((a, y[:, :, 2:3].sigmoid()), 2)  # Apply sigmoid to visibility logits
+                a = torch.cat((a, y[:, :, 2:3].sigmoid()), 2)
             return a.view(bs, self.nk, -1)
         else:
-            # Training or regular inference mode
             y = kpts.clone()
-            if self.training:
-                # Training mode: Do not apply sigmoid to visibility logits
-                if ndim == 3:
-                    pass  # Do not apply sigmoid here
-            else:
-                # Inference mode: Apply sigmoid to visibility logits
-                if ndim == 3:
-                    y[:, 2::ndim] = y[:, 2::ndim].sigmoid()
+            if ndim == 3:
+                y[:, 2::3] = y[:, 2::3].sigmoid()  # sigmoid (WARNING: inplace .sigmoid_() Apple MPS bug)
             y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
             y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
             return y
