@@ -701,10 +701,10 @@ class v8PoseLoss(v8DetectionLoss):
         y[..., 0] += anchor_points[:, [0]] - 0.5
         y[..., 1] += anchor_points[:, [1]] - 0.5
         # Decode visibility as binary (0 = occluded, 1 = visible)
-        if y.shape[-1] == 3:  # Apply only if there is visibility flag
-            y[..., 2] = (
-                y[..., 2] > 0.0
-            ).float()  # Threshold for classifying visibility
+        # if y.shape[-1] == 3:  # Apply only if there is visibility flag
+        #     y[..., 2] = (
+        #         y[..., 2] > 0.0
+        #     ).float()  # Threshold for classifying visibility
 
         return y
 
@@ -788,14 +788,15 @@ class v8PoseLoss(v8DetectionLoss):
 
             # Calculate pos_weight dynamically
             num_visible = (visibility_flags == 2).float().sum()
-            num_occluded = (visibility_flags != 2).float().sum()
+            num_occluded = (visibility_flags == 1).float().sum()
             pos_weight_value = num_occluded / (num_visible + 1e-9)
             pos_weight = torch.tensor([pos_weight_value], device=self.device)
 
             # Keypoint object loss (binary classification between occluded and visible)
+            # Use raw logits for pred_kpt[..., 2], and target labels as (visibility_flags == 2).float()
             kpts_obj_loss = F.binary_cross_entropy_with_logits(
-            pred_kpt[..., 2], (visibility_flags == 2).float(), pos_weight=pos_weight
-        )
+                pred_kpt[..., 2], (visibility_flags == 2).float(), pos_weight=pos_weight
+            )
         return kpts_loss, kpts_obj_loss
 
 
