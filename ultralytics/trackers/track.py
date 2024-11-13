@@ -38,7 +38,9 @@ def on_predict_start(predictor: object, persist: bool = False) -> None:
     cfg = IterableSimpleNamespace(**yaml_load(tracker))
 
     if cfg.tracker_type not in {"bytetrack", "botsort"}:
-        raise AssertionError(f"Only 'bytetrack' and 'botsort' are supported for now, but got '{cfg.tracker_type}'")
+        raise AssertionError(
+            f"Only 'bytetrack' and 'botsort' are supported for now, but got '{cfg.tracker_type}'"
+        )
 
     trackers = []
     for _ in range(predictor.dataset.bs):
@@ -47,7 +49,9 @@ def on_predict_start(predictor: object, persist: bool = False) -> None:
         if predictor.dataset.mode != "stream":  # only need one tracker for other modes.
             break
     predictor.trackers = trackers
-    predictor.vid_path = [None] * predictor.dataset.bs  # for determining when to reset tracker on new video
+    predictor.vid_path = [
+        None
+    ] * predictor.dataset.bs  # for determining when to reset tracker on new video
 
 
 def on_predict_postprocess_end(predictor: object, persist: bool = False) -> None:
@@ -74,7 +78,11 @@ def on_predict_postprocess_end(predictor: object, persist: bool = False) -> None
             tracker.reset()
             predictor.vid_path[i if is_stream else 0] = vid_path
 
-        det = (predictor.results[i].obb if is_obb else predictor.results[i].boxes).cpu().numpy()
+        det = (
+            (predictor.results[i].obb if is_obb else predictor.results[i].boxes)
+            .cpu()
+            .numpy()
+        )
         if len(det) == 0:
             continue
         tracks = tracker.update(det, im0s[i])
@@ -101,4 +109,7 @@ def register_tracker(model: object, persist: bool) -> None:
         >>> register_tracker(model, persist=True)
     """
     model.add_callback("on_predict_start", partial(on_predict_start, persist=persist))
-    model.add_callback("on_predict_postprocess_end", partial(on_predict_postprocess_end, persist=persist))
+    model.add_callback(
+        "on_predict_postprocess_end",
+        partial(on_predict_postprocess_end, persist=persist),
+    )

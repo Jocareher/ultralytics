@@ -9,8 +9,15 @@ from ultralytics.utils import LOGGER, RANK, SETTINGS
 
 def on_pretrain_routine_start(trainer):
     """Create a remote Ultralytics HUB session to log local model training."""
-    if RANK in {-1, 0} and SETTINGS["hub"] is True and SETTINGS["api_key"] and trainer.hub_session is None:
-        trainer.hub_session = HUBTrainingSession.create_session(trainer.args.model, trainer.args)
+    if (
+        RANK in {-1, 0}
+        and SETTINGS["hub"] is True
+        and SETTINGS["api_key"]
+        and trainer.hub_session is None
+    ):
+        trainer.hub_session = HUBTrainingSession.create_session(
+            trainer.args.model, trainer.args
+        )
 
 
 def on_pretrain_routine_end(trainer):
@@ -18,7 +25,10 @@ def on_pretrain_routine_end(trainer):
     session = getattr(trainer, "hub_session", None)
     if session:
         # Start timer for upload rate limit
-        session.timers = {"metrics": time(), "ckpt": time()}  # start timer on session.rate_limit
+        session.timers = {
+            "metrics": time(),
+            "ckpt": time(),
+        }  # start timer on session.rate_limit
 
 
 def on_fit_epoch_end(trainer):
@@ -54,7 +64,9 @@ def on_model_save(trainer):
         # Upload checkpoints with rate limiting
         is_best = trainer.best_fitness == trainer.fitness
         if time() - session.timers["ckpt"] > session.rate_limits["ckpt"]:
-            LOGGER.info(f"{PREFIX}Uploading checkpoint {HUB_WEB_ROOT}/models/{session.model.id}")
+            LOGGER.info(
+                f"{PREFIX}Uploading checkpoint {HUB_WEB_ROOT}/models/{session.model.id}"
+            )
             session.upload_model(trainer.epoch, trainer.last, is_best)
             session.timers["ckpt"] = time()  # reset timer
 

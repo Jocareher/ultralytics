@@ -5,7 +5,9 @@ from pathlib import Path
 from ultralytics import SAM, YOLO
 
 
-def auto_annotate(data, det_model="yolov8x.pt", sam_model="sam_b.pt", device="", output_dir=None):
+def auto_annotate(
+    data, det_model="yolov8x.pt", sam_model="sam_b.pt", device="", output_dir=None
+):
     """
     Automatically annotates images using a YOLO object detection model and a SAM segmentation model.
 
@@ -42,7 +44,9 @@ def auto_annotate(data, det_model="yolov8x.pt", sam_model="sam_b.pt", device="",
         class_ids = result.boxes.cls.int().tolist()  # noqa
         if len(class_ids):
             boxes = result.boxes.xyxy  # Boxes object for bbox outputs
-            sam_results = sam_model(result.orig_img, bboxes=boxes, verbose=False, save=False, device=device)
+            sam_results = sam_model(
+                result.orig_img, bboxes=boxes, verbose=False, save=False, device=device
+            )
             segments = sam_results[0].masks.xyn  # noqa
 
             with open(f"{Path(output_dir) / Path(result.path).stem}.txt", "w") as f:

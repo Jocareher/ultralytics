@@ -56,7 +56,9 @@ class TorchVisionVideoClassifier:
             ValueError: If an invalid model name is provided.
         """
         if model_name not in self.model_name_to_model_and_weights:
-            raise ValueError(f"Invalid model name '{model_name}'. Available models: {self.available_model_names()}")
+            raise ValueError(
+                f"Invalid model name '{model_name}'. Available models: {self.available_model_names()}"
+            )
         model, self.weights = self.model_name_to_model_and_weights[model_name]
         self.device = select_device(device)
         self.model = model(weights=self.weights).to(self.device).eval()
@@ -71,7 +73,9 @@ class TorchVisionVideoClassifier:
         """
         return list(TorchVisionVideoClassifier.model_name_to_model_and_weights.keys())
 
-    def preprocess_crops_for_video_cls(self, crops: List[np.ndarray], input_size: list = None) -> torch.Tensor:
+    def preprocess_crops_for_video_cls(
+        self, crops: List[np.ndarray], input_size: list = None
+    ) -> torch.Tensor:
         """
         Preprocess a list of crops for video classification.
 
@@ -90,12 +94,22 @@ class TorchVisionVideoClassifier:
             [
                 v2.ToDtype(torch.float32, scale=True),
                 v2.Resize(input_size, antialias=True),
-                v2.Normalize(mean=self.weights.transforms().mean, std=self.weights.transforms().std),
+                v2.Normalize(
+                    mean=self.weights.transforms().mean,
+                    std=self.weights.transforms().std,
+                ),
             ]
         )
 
-        processed_crops = [transform(torch.from_numpy(crop).permute(2, 0, 1)) for crop in crops]
-        return torch.stack(processed_crops).unsqueeze(0).permute(0, 2, 1, 3, 4).to(self.device)
+        processed_crops = [
+            transform(torch.from_numpy(crop).permute(2, 0, 1)) for crop in crops
+        ]
+        return (
+            torch.stack(processed_crops)
+            .unsqueeze(0)
+            .permute(0, 2, 1, 3, 4)
+            .to(self.device)
+        )
 
     def __call__(self, sequences: torch.Tensor):
         """
@@ -162,7 +176,9 @@ class HuggingFaceVideoClassifier:
             model = model.half()
         self.model = model.eval()
 
-    def preprocess_crops_for_video_cls(self, crops: List[np.ndarray], input_size: list = None) -> torch.Tensor:
+    def preprocess_crops_for_video_cls(
+        self, crops: List[np.ndarray], input_size: list = None
+    ) -> torch.Tensor:
         """
         Preprocess a list of crops for video classification.
 
@@ -182,13 +198,18 @@ class HuggingFaceVideoClassifier:
                 transforms.Lambda(lambda x: x.float() / 255.0),
                 transforms.Resize(input_size),
                 transforms.Normalize(
-                    mean=self.processor.image_processor.image_mean, std=self.processor.image_processor.image_std
+                    mean=self.processor.image_processor.image_mean,
+                    std=self.processor.image_processor.image_std,
                 ),
             ]
         )
 
-        processed_crops = [transform(torch.from_numpy(crop).permute(2, 0, 1)) for crop in crops]  # (T, C, H, W)
-        output = torch.stack(processed_crops).unsqueeze(0).to(self.device)  # (1, T, C, H, W)
+        processed_crops = [
+            transform(torch.from_numpy(crop).permute(2, 0, 1)) for crop in crops
+        ]  # (T, C, H, W)
+        output = (
+            torch.stack(processed_crops).unsqueeze(0).to(self.device)
+        )  # (1, T, C, H, W)
         if self.fp16:
             output = output.half()
         return output
@@ -203,7 +224,9 @@ class HuggingFaceVideoClassifier:
         Returns:
             torch.Tensor: The model's output.
         """
-        input_ids = self.processor(text=self.labels, return_tensors="pt", padding=True)["input_ids"].to(self.device)
+        input_ids = self.processor(text=self.labels, return_tensors="pt", padding=True)[
+            "input_ids"
+        ].to(self.device)
 
         inputs = {"pixel_values": sequences, "input_ids": input_ids}
 
@@ -212,7 +235,9 @@ class HuggingFaceVideoClassifier:
 
         return outputs.logits_per_video
 
-    def postprocess(self, outputs: torch.Tensor) -> Tuple[List[List[str]], List[List[float]]]:
+    def postprocess(
+        self, outputs: torch.Tensor
+    ) -> Tuple[List[List[str]], List[List[float]]]:
         """
         Postprocess the model's batch output.
 
@@ -228,7 +253,9 @@ class HuggingFaceVideoClassifier:
 
         with torch.no_grad():
             logits_per_video = outputs  # Assuming outputs is already the logits tensor
-            probs = logits_per_video.softmax(dim=-1)  # Use softmax to convert logits to probabilities
+            probs = logits_per_video.softmax(
+                dim=-1
+            )  # Use softmax to convert logits to probabilities
 
         for prob in probs:
             top2_indices = prob.topk(2).indices.tolist()
@@ -308,21 +335,31 @@ def run(
     device = select_device(device)
     yolo_model = YOLO(weights).to(device)
     if video_classifier_model in TorchVisionVideoClassifier.available_model_names():
-        print("'fp16' is not supported for TorchVisionVideoClassifier. Setting fp16 to False.")
+        print(
+            "'fp16' is not supported for TorchVisionVideoClassifier. Setting fp16 to False."
+        )
         print(
             "'labels' is not used for TorchVisionVideoClassifier. Ignoring the provided labels and using Kinetics-400 labels."
         )
-        video_classifier = TorchVisionVideoClassifier(video_classifier_model, device=device)
+        video_classifier = TorchVisionVideoClassifier(
+            video_classifier_model, device=device
+        )
     else:
         video_classifier = HuggingFaceVideoClassifier(
             labels, model_name=video_classifier_model, device=device, fp16=fp16
         )
 
     # Initialize video capture
-    if source.startswith("http") and urlparse(source).hostname in {"www.youtube.com", "youtube.com", "youtu.be"}:
+    if source.startswith("http") and urlparse(source).hostname in {
+        "www.youtube.com",
+        "youtube.com",
+        "youtu.be",
+    }:
         source = get_best_youtube_url(source)
     elif not source.endswith(".mp4"):
-        raise ValueError("Invalid source. Supported sources are YouTube URLs and MP4 files.")
+        raise ValueError(
+            "Invalid source. Supported sources are YouTube URLs and MP4 files."
+        )
     cap = cv2.VideoCapture(source)
 
     # Get video properties
@@ -352,7 +389,9 @@ def run(
         frame_counter += 1
 
         # Run YOLO tracking
-        results = yolo_model.track(frame, persist=True, classes=[0])  # Track only person class
+        results = yolo_model.track(
+            frame, persist=True, classes=[0]
+        )  # Track only person class
 
         if results[0].boxes.id is not None:
             boxes = results[0].boxes.xyxy.cpu().numpy()
@@ -373,9 +412,14 @@ def run(
                 if len(track_history[track_id]) > num_video_sequence_samples:
                     track_history[track_id].pop(0)
 
-                if len(track_history[track_id]) == num_video_sequence_samples and frame_counter % skip_frame == 0:
+                if (
+                    len(track_history[track_id]) == num_video_sequence_samples
+                    and frame_counter % skip_frame == 0
+                ):
                     start_time = time.time()
-                    crops = video_classifier.preprocess_crops_for_video_cls(track_history[track_id])
+                    crops = video_classifier.preprocess_crops_for_video_cls(
+                        track_history[track_id]
+                    )
                     end_time = time.time()
                     preprocess_time = end_time - start_time
                     print(f"video cls preprocess time: {preprocess_time:.4f} seconds")
@@ -384,7 +428,13 @@ def run(
 
             if crops_to_infer and (
                 not pred_labels
-                or frame_counter % int(num_video_sequence_samples * skip_frame * (1 - video_cls_overlap_ratio)) == 0
+                or frame_counter
+                % int(
+                    num_video_sequence_samples
+                    * skip_frame
+                    * (1 - video_cls_overlap_ratio)
+                )
+                == 0
             ):
                 crops_batch = torch.cat(crops_to_infer, dim=0)
 
@@ -397,9 +447,15 @@ def run(
                 pred_labels, pred_confs = video_classifier.postprocess(output_batch)
 
             if track_ids_to_infer and crops_to_infer:
-                for box, track_id, pred_label, pred_conf in zip(boxes, track_ids_to_infer, pred_labels, pred_confs):
-                    top2_preds = sorted(zip(pred_label, pred_conf), key=lambda x: x[1], reverse=True)
-                    label_text = " | ".join([f"{label} ({conf:.2f})" for label, conf in top2_preds])
+                for box, track_id, pred_label, pred_conf in zip(
+                    boxes, track_ids_to_infer, pred_labels, pred_confs
+                ):
+                    top2_preds = sorted(
+                        zip(pred_label, pred_conf), key=lambda x: x[1], reverse=True
+                    )
+                    label_text = " | ".join(
+                        [f"{label} ({conf:.2f})" for label, conf in top2_preds]
+                    )
                     annotator.box_label(box, label_text, color=(0, 0, 255))
 
         # Write the annotated frame to the output video
@@ -421,28 +477,59 @@ def run(
 def parse_opt():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", type=str, default="yolo11n.pt", help="ultralytics detector model path")
-    parser.add_argument("--device", default="", help='cuda device, i.e. 0 or 0,1,2,3 or cpu/mps, "" for auto-detection')
+    parser.add_argument(
+        "--weights",
+        type=str,
+        default="yolo11n.pt",
+        help="ultralytics detector model path",
+    )
+    parser.add_argument(
+        "--device",
+        default="",
+        help='cuda device, i.e. 0 or 0,1,2,3 or cpu/mps, "" for auto-detection',
+    )
     parser.add_argument(
         "--source",
         type=str,
         default="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         help="video file path or youtube URL",
     )
-    parser.add_argument("--output-path", type=str, default="output_video.mp4", help="output video file path")
     parser.add_argument(
-        "--crop-margin-percentage", type=int, default=10, help="percentage of margin to add around detected objects"
+        "--output-path",
+        type=str,
+        default="output_video.mp4",
+        help="output video file path",
     )
     parser.add_argument(
-        "--num-video-sequence-samples", type=int, default=8, help="number of video frames to use for classification"
+        "--crop-margin-percentage",
+        type=int,
+        default=10,
+        help="percentage of margin to add around detected objects",
     )
-    parser.add_argument("--skip-frame", type=int, default=2, help="number of frames to skip between detections")
     parser.add_argument(
-        "--video-cls-overlap-ratio", type=float, default=0.25, help="overlap ratio between video sequences"
+        "--num-video-sequence-samples",
+        type=int,
+        default=8,
+        help="number of video frames to use for classification",
+    )
+    parser.add_argument(
+        "--skip-frame",
+        type=int,
+        default=2,
+        help="number of frames to skip between detections",
+    )
+    parser.add_argument(
+        "--video-cls-overlap-ratio",
+        type=float,
+        default=0.25,
+        help="overlap ratio between video sequences",
     )
     parser.add_argument("--fp16", action="store_true", help="use FP16 for inference")
     parser.add_argument(
-        "--video-classifier-model", type=str, default="microsoft/xclip-base-patch32", help="video classifier model name"
+        "--video-classifier-model",
+        type=str,
+        default="microsoft/xclip-base-patch32",
+        help="video classifier model name",
     )
     parser.add_argument(
         "--labels",

@@ -60,7 +60,9 @@ class Analytics(BaseSolution):
         self.max_points = 45  # maximum points to be drawn on window
         self.fontsize = 25  # text font size for display
         figsize = (19.2, 10.8)  # Set output image size 1920 * 1080
-        self.color_cycle = cycle(["#DD00BA", "#042AFF", "#FF4447", "#7D24FF", "#BD00FF"])
+        self.color_cycle = cycle(
+            ["#DD00BA", "#042AFF", "#FF4447", "#7D24FF", "#BD00FF"]
+        )
 
         self.total_counts = 0  # count variable for storing total counts i.e. for line
         self.clswise_count = {}  # dictionary for class-wise counts
@@ -72,7 +74,9 @@ class Analytics(BaseSolution):
             self.canvas = FigureCanvas(self.fig)  # Set common axis properties
             self.ax = self.fig.add_subplot(111, facecolor=self.bg_color)
             if self.type == "line":
-                (self.line,) = self.ax.plot([], [], color="cyan", linewidth=self.line_width)
+                (self.line,) = self.ax.plot(
+                    [], [], color="cyan", linewidth=self.line_width
+                )
         elif self.type in {"bar", "pie"}:
             # Initialize bar or pie plot
             self.fig, self.ax = plt.subplots(figsize=figsize, facecolor=self.bg_color)
@@ -116,7 +120,9 @@ class Analytics(BaseSolution):
                     self.clswise_count[self.names[int(cls)]] += 1
                 else:
                     self.clswise_count[self.names[int(cls)]] = 1
-            im0 = self.update_graph(frame_number=frame_number, count_dict=self.clswise_count, plot=self.type)
+            im0 = self.update_graph(
+                frame_number=frame_number, count_dict=self.clswise_count, plot=self.type
+            )
         else:
             raise ModuleNotFoundError(f"{self.type} chart is not supported ❌")
         return im0
@@ -157,7 +163,9 @@ class Analytics(BaseSolution):
             labels = list(count_dict.keys())
             counts = list(count_dict.values())
             if plot == "area":
-                color_cycle = cycle(["#DD00BA", "#042AFF", "#FF4447", "#7D24FF", "#BD00FF"])
+                color_cycle = cycle(
+                    ["#DD00BA", "#042AFF", "#FF4447", "#7D24FF", "#BD00FF"]
+                )
                 # Multiple lines or area update
                 x_data = self.ax.lines[0].get_xdata() if self.ax.lines else np.array([])
                 y_data_dict = {key: np.array([]) for key in count_dict.keys()}
@@ -168,9 +176,15 @@ class Analytics(BaseSolution):
                 x_data = np.append(x_data, float(frame_number))
                 max_length = len(x_data)
                 for key in count_dict.keys():
-                    y_data_dict[key] = np.append(y_data_dict[key], float(count_dict[key]))
+                    y_data_dict[key] = np.append(
+                        y_data_dict[key], float(count_dict[key])
+                    )
                     if len(y_data_dict[key]) < max_length:
-                        y_data_dict[key] = np.pad(y_data_dict[key], (0, max_length - len(y_data_dict[key])), "constant")
+                        y_data_dict[key] = np.pad(
+                            y_data_dict[key],
+                            (0, max_length - len(y_data_dict[key])),
+                            "constant",
+                        )
                 if len(x_data) > self.max_points:
                     x_data = x_data[1:]
                     for key in count_dict.keys():
@@ -208,7 +222,12 @@ class Analytics(BaseSolution):
                 # Create the legend using labels from the bars
                 for bar, label in zip(bars, labels):
                     bar.set_label(label)  # Assign label to each bar
-                self.ax.legend(loc="upper left", fontsize=13, facecolor=self.fg_color, edgecolor=self.fg_color)
+                self.ax.legend(
+                    loc="upper left",
+                    fontsize=13,
+                    facecolor=self.fg_color,
+                    edgecolor=self.fg_color,
+                )
             if plot == "pie":
                 total = sum(counts)
                 percentages = [size / total * 100 for size in counts]
@@ -217,22 +236,48 @@ class Analytics(BaseSolution):
 
                 # Create pie chart and create legend labels with percentages
                 wedges, autotexts = self.ax.pie(
-                    counts, labels=labels, startangle=start_angle, textprops={"color": self.fg_color}, autopct=None
+                    counts,
+                    labels=labels,
+                    startangle=start_angle,
+                    textprops={"color": self.fg_color},
+                    autopct=None,
                 )
-                legend_labels = [f"{label} ({percentage:.1f}%)" for label, percentage in zip(labels, percentages)]
+                legend_labels = [
+                    f"{label} ({percentage:.1f}%)"
+                    for label, percentage in zip(labels, percentages)
+                ]
 
                 # Assign the legend using the wedges and manually created labels
-                self.ax.legend(wedges, legend_labels, title="Classes", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
-                self.fig.subplots_adjust(left=0.1, right=0.75)  # Adjust layout to fit the legend
+                self.ax.legend(
+                    wedges,
+                    legend_labels,
+                    title="Classes",
+                    loc="center left",
+                    bbox_to_anchor=(1, 0, 0.5, 1),
+                )
+                self.fig.subplots_adjust(
+                    left=0.1, right=0.75
+                )  # Adjust layout to fit the legend
 
         # Common plot settings
-        self.ax.set_facecolor("#f0f0f0")  # Set to light gray or any other color you like
+        self.ax.set_facecolor(
+            "#f0f0f0"
+        )  # Set to light gray or any other color you like
         self.ax.set_title(self.title, color=self.fg_color, fontsize=self.fontsize)
-        self.ax.set_xlabel(self.x_label, color=self.fg_color, fontsize=self.fontsize - 3)
-        self.ax.set_ylabel(self.y_label, color=self.fg_color, fontsize=self.fontsize - 3)
+        self.ax.set_xlabel(
+            self.x_label, color=self.fg_color, fontsize=self.fontsize - 3
+        )
+        self.ax.set_ylabel(
+            self.y_label, color=self.fg_color, fontsize=self.fontsize - 3
+        )
 
         # Add and format legend
-        legend = self.ax.legend(loc="upper left", fontsize=13, facecolor=self.bg_color, edgecolor=self.bg_color)
+        legend = self.ax.legend(
+            loc="upper left",
+            fontsize=13,
+            facecolor=self.bg_color,
+            edgecolor=self.bg_color,
+        )
         for text in legend.get_texts():
             text.set_color(self.fg_color)
 

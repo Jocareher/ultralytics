@@ -70,7 +70,9 @@ class DFL(nn.Module):
     def forward(self, x):
         """Applies a transformer layer on input tensor 'x' and returns a tensor."""
         b, _, a = x.shape  # batch, channels, anchors
-        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(b, 4, a)
+        return self.conv(x.view(b, 4, self.c1, a).transpose(2, 1).softmax(1)).view(
+            b, 4, a
+        )
         # return self.conv(x.view(b, self.c1, 4, a).softmax(1)).view(b, 4, a)
 
 
@@ -85,7 +87,9 @@ class Proto(nn.Module):
         """
         super().__init__()
         self.cv1 = Conv(c1, c_, k=3)
-        self.upsample = nn.ConvTranspose2d(c_, c_, 2, 2, 0, bias=True)  # nn.Upsample(scale_factor=2, mode='nearest')
+        self.upsample = nn.ConvTranspose2d(
+            c_, c_, 2, 2, 0, bias=True
+        )  # nn.Upsample(scale_factor=2, mode='nearest')
         self.cv2 = Conv(c_, c_, k=3)
         self.cv3 = Conv(c_, c2)
 
@@ -132,11 +136,15 @@ class HGBlock(nn.Module):
     https://github.com/PaddlePaddle/PaddleDetection/blob/develop/ppdet/modeling/backbones/hgnet_v2.py
     """
 
-    def __init__(self, c1, cm, c2, k=3, n=6, lightconv=False, shortcut=False, act=nn.ReLU()):
+    def __init__(
+        self, c1, cm, c2, k=3, n=6, lightconv=False, shortcut=False, act=nn.ReLU()
+    ):
         """Initializes a CSP Bottleneck with 1 convolution using specified input and output channels."""
         super().__init__()
         block = LightConv if lightconv else Conv
-        self.m = nn.ModuleList(block(c1 if i == 0 else cm, cm, k=k, act=act) for i in range(n))
+        self.m = nn.ModuleList(
+            block(c1 if i == 0 else cm, cm, k=k, act=act) for i in range(n)
+        )
         self.sc = Conv(c1 + n * cm, c2 // 2, 1, 1, act=act)  # squeeze conv
         self.ec = Conv(c2 // 2, c2, 1, 1, act=act)  # excitation conv
         self.add = shortcut and c1 == c2
@@ -158,7 +166,9 @@ class SPP(nn.Module):
         c_ = c1 // 2  # hidden channels
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c_ * (len(k) + 1), c2, 1, 1)
-        self.m = nn.ModuleList([nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k])
+        self.m = nn.ModuleList(
+            [nn.MaxPool2d(kernel_size=x, stride=1, padding=x // 2) for x in k]
+        )
 
     def forward(self, x):
         """Forward pass of the SPP layer, performing spatial pyramid pooling."""
@@ -213,7 +223,12 @@ class C2(nn.Module):
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv(2 * self.c, c2, 1)  # optional act=FReLU(c2)
         # self.attention = ChannelAttention(2 * self.c)  # or SpatialAttention()
-        self.m = nn.Sequential(*(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x):
         """Forward pass through the CSP bottleneck with 2 convolutions."""
@@ -230,7 +245,10 @@ class C2f(nn.Module):
         self.c = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
 
     def forward(self, x):
         """Forward pass through C2f layer."""
@@ -255,7 +273,12 @@ class C3(nn.Module):
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c1, c_, 1, 1)
         self.cv3 = Conv(2 * c_, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=((1, 1), (3, 3)), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(c_, c_, shortcut, g, k=((1, 1), (3, 3)), e=1.0)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x):
         """Forward pass through the CSP bottleneck with 2 convolutions."""
@@ -269,7 +292,12 @@ class C3x(C3):
         """Initialize C3TR instance and set default parameters."""
         super().__init__(c1, c2, n, shortcut, g, e)
         self.c_ = int(c2 * e)
-        self.m = nn.Sequential(*(Bottleneck(self.c_, self.c_, shortcut, g, k=((1, 3), (3, 1)), e=1) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                Bottleneck(self.c_, self.c_, shortcut, g, k=((1, 3), (3, 1)), e=1)
+                for _ in range(n)
+            )
+        )
 
 
 class RepC3(nn.Module):
@@ -322,7 +350,11 @@ class GhostBottleneck(nn.Module):
             GhostConv(c_, c2, 1, 1, act=False),  # pw-linear
         )
         self.shortcut = (
-            nn.Sequential(DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=False)) if s == 2 else nn.Identity()
+            nn.Sequential(
+                DWConv(c1, c1, k, s, act=False), Conv(c1, c2, 1, 1, act=False)
+            )
+            if s == 2
+            else nn.Identity()
         )
 
     def forward(self, x):
@@ -359,7 +391,9 @@ class BottleneckCSP(nn.Module):
         self.cv4 = Conv(2 * c_, c2, 1, 1)
         self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
         self.act = nn.SiLU()
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n))
+        )
 
     def forward(self, x):
         """Applies a CSP bottleneck with 3 convolutions."""
@@ -378,7 +412,11 @@ class ResNetBlock(nn.Module):
         self.cv1 = Conv(c1, c2, k=1, s=1, act=True)
         self.cv2 = Conv(c2, c2, k=3, s=s, p=1, act=True)
         self.cv3 = Conv(c2, c3, k=1, act=False)
-        self.shortcut = nn.Sequential(Conv(c1, c3, k=1, s=s, act=False)) if s != 1 or c1 != c3 else nn.Identity()
+        self.shortcut = (
+            nn.Sequential(Conv(c1, c3, k=1, s=s, act=False))
+            if s != 1 or c1 != c3
+            else nn.Identity()
+        )
 
     def forward(self, x):
         """Forward pass through the ResNet block."""
@@ -395,7 +433,8 @@ class ResNetLayer(nn.Module):
 
         if self.is_first:
             self.layer = nn.Sequential(
-                Conv(c1, c2, k=7, s=2, p=3, act=True), nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+                Conv(c1, c2, k=7, s=2, p=3, act=True),
+                nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             )
         else:
             blocks = [ResNetBlock(c1, c2, s, e=e)]
@@ -451,7 +490,10 @@ class C2fAttn(nn.Module):
         self.c = int(c2 * e)  # hidden channels
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((3 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
         self.attn = MaxSigmoidAttnBlock(self.c, self.c, gc=gc, ec=ec, nh=nh)
 
     def forward(self, x, guide):
@@ -481,8 +523,12 @@ class ImagePoolingAttn(nn.Module):
         self.key = nn.Sequential(nn.LayerNorm(ec), nn.Linear(ec, ec))
         self.value = nn.Sequential(nn.LayerNorm(ec), nn.Linear(ec, ec))
         self.proj = nn.Linear(ec, ct)
-        self.scale = nn.Parameter(torch.tensor([0.0]), requires_grad=True) if scale else 1.0
-        self.projections = nn.ModuleList([nn.Conv2d(in_channels, ec, kernel_size=1) for in_channels in ch])
+        self.scale = (
+            nn.Parameter(torch.tensor([0.0]), requires_grad=True) if scale else 1.0
+        )
+        self.projections = nn.ModuleList(
+            [nn.Conv2d(in_channels, ec, kernel_size=1) for in_channels in ch]
+        )
         self.im_pools = nn.ModuleList([nn.AdaptiveMaxPool2d((k, k)) for _ in range(nf)])
         self.ec = ec
         self.nh = nh
@@ -495,7 +541,10 @@ class ImagePoolingAttn(nn.Module):
         bs = x[0].shape[0]
         assert len(x) == self.nf
         num_patches = self.k**2
-        x = [pool(proj(x)).view(bs, -1, num_patches) for (x, proj, pool) in zip(x, self.projections, self.im_pools)]
+        x = [
+            pool(proj(x)).view(bs, -1, num_patches)
+            for (x, proj, pool) in zip(x, self.projections, self.im_pools)
+        ]
         x = torch.cat(x, dim=-1).transpose(1, 2)
         q = self.query(text)
         k = self.key(x)
@@ -575,7 +624,9 @@ class RepCSP(C3):
         """Initializes RepCSP layer with given channels, repetitions, shortcut, groups and expansion ratio."""
         super().__init__(c1, c2, n, shortcut, g, e)
         c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(RepBottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n))
+        )
 
 
 class RepNCSPELAN4(nn.Module):
@@ -695,7 +746,10 @@ class CBFuse(nn.Module):
     def forward(self, xs):
         """Forward pass through CBFuse layer."""
         target_size = xs[-1].shape[2:]
-        res = [F.interpolate(x[self.idx[i]], size=target_size, mode="nearest") for i, x in enumerate(xs[:-1])]
+        res = [
+            F.interpolate(x[self.idx[i]], size=target_size, mode="nearest")
+            for i, x in enumerate(xs[:-1])
+        ]
         return torch.sum(torch.stack(res + xs[-1:]), dim=0)
 
 
@@ -711,7 +765,9 @@ class C3f(nn.Module):
         self.cv1 = Conv(c1, c_, 1, 1)
         self.cv2 = Conv(c1, c_, 1, 1)
         self.cv3 = Conv((2 + n) * c_, c2, 1)  # optional act=FReLU(c2)
-        self.m = nn.ModuleList(Bottleneck(c_, c_, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+        self.m = nn.ModuleList(
+            Bottleneck(c_, c_, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n)
+        )
 
     def forward(self, x):
         """Forward pass through C2f layer."""
@@ -727,7 +783,10 @@ class C3k2(C2f):
         """Initializes the C3k2 module, a faster CSP Bottleneck with 2 convolutions and optional C3k blocks."""
         super().__init__(c1, c2, n, shortcut, g, e)
         self.m = nn.ModuleList(
-            C3k(self.c, self.c, 2, shortcut, g) if c3k else Bottleneck(self.c, self.c, shortcut, g) for _ in range(n)
+            C3k(self.c, self.c, 2, shortcut, g)
+            if c3k
+            else Bottleneck(self.c, self.c, shortcut, g)
+            for _ in range(n)
         )
 
 
@@ -739,7 +798,9 @@ class C3k(C3):
         super().__init__(c1, c2, n, shortcut, g, e)
         c_ = int(c2 * e)  # hidden channels
         # self.m = nn.Sequential(*(RepBottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
-        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(Bottleneck(c_, c_, shortcut, g, k=(k, k), e=1.0) for _ in range(n))
+        )
 
 
 class RepVGGDW(torch.nn.Module):
@@ -860,7 +921,9 @@ class C2fCIB(C2f):
     def __init__(self, c1, c2, n=1, shortcut=False, lk=False, g=1, e=0.5):
         """Initializes the module with specified parameters for channel, shortcut, local key, groups, and expansion."""
         super().__init__(c1, c2, n, shortcut, g, e)
-        self.m = nn.ModuleList(CIB(self.c, self.c, shortcut, e=1.0, lk=lk) for _ in range(n))
+        self.m = nn.ModuleList(
+            CIB(self.c, self.c, shortcut, e=1.0, lk=lk) for _ in range(n)
+        )
 
 
 class Attention(nn.Module):
@@ -908,13 +971,15 @@ class Attention(nn.Module):
         B, C, H, W = x.shape
         N = H * W
         qkv = self.qkv(x)
-        q, k, v = qkv.view(B, self.num_heads, self.key_dim * 2 + self.head_dim, N).split(
-            [self.key_dim, self.key_dim, self.head_dim], dim=2
-        )
+        q, k, v = qkv.view(
+            B, self.num_heads, self.key_dim * 2 + self.head_dim, N
+        ).split([self.key_dim, self.key_dim, self.head_dim], dim=2)
 
         attn = (q.transpose(-2, -1) @ k) * self.scale
         attn = attn.softmax(dim=-1)
-        x = (v @ attn.transpose(-2, -1)).view(B, C, H, W) + self.pe(v.reshape(B, C, H, W))
+        x = (v @ attn.transpose(-2, -1)).view(B, C, H, W) + self.pe(
+            v.reshape(B, C, H, W)
+        )
         x = self.proj(x)
         return x
 
@@ -989,7 +1054,9 @@ class PSA(nn.Module):
         self.cv2 = Conv(2 * self.c, c1, 1)
 
         self.attn = Attention(self.c, attn_ratio=0.5, num_heads=self.c // 64)
-        self.ffn = nn.Sequential(Conv(self.c, self.c * 2, 1), Conv(self.c * 2, self.c, 1, act=False))
+        self.ffn = nn.Sequential(
+            Conv(self.c, self.c * 2, 1), Conv(self.c * 2, self.c, 1, act=False)
+        )
 
     def forward(self, x):
         """Executes forward pass in PSA module, applying attention and feed-forward layers to the input tensor."""
@@ -1032,7 +1099,12 @@ class C2PSA(nn.Module):
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv(2 * self.c, c1, 1)
 
-        self.m = nn.Sequential(*(PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64)
+                for _ in range(n)
+            )
+        )
 
     def forward(self, x):
         """Processes the input tensor 'x' through a series of PSA blocks and returns the transformed tensor."""
@@ -1070,7 +1142,9 @@ class C2fPSA(C2f):
         """Initializes the C2fPSA module, a variant of C2f with PSA blocks for enhanced feature extraction."""
         assert c1 == c2
         super().__init__(c1, c2, n=n, e=e)
-        self.m = nn.ModuleList(PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n))
+        self.m = nn.ModuleList(
+            PSABlock(self.c, attn_ratio=0.5, num_heads=self.c // 64) for _ in range(n)
+        )
 
 
 class SCDown(nn.Module):

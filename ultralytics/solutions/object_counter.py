@@ -83,7 +83,9 @@ class ObjectCounter(BaseSolution):
                 self.out_count += 1
                 self.classwise_counts[self.names[cls]]["OUT"] += 1
 
-        elif len(self.region) < 3 and self.LineString([prev_position, box[:2]]).intersects(self.r_s):
+        elif len(self.region) < 3 and self.LineString(
+            [prev_position, box[:2]]
+        ).intersects(self.r_s):
             self.counted_ids.append(track_id)
             # For linear region
             if dx > 0 and dy > 0:
@@ -132,7 +134,9 @@ class ObjectCounter(BaseSolution):
         }
 
         if labels_dict:
-            self.annotator.display_analytics(im0, labels_dict, (104, 31, 17), (255, 255, 255), 10)
+            self.annotator.display_analytics(
+                im0, labels_dict, (104, 31, 17), (255, 255, 255), 10
+            )
 
     def count(self, im0):
         """
@@ -156,7 +160,9 @@ class ObjectCounter(BaseSolution):
             self.initialize_region()
             self.region_initialized = True
 
-        self.annotator = Annotator(im0, line_width=self.line_width)  # Initialize annotator
+        self.annotator = Annotator(
+            im0, line_width=self.line_width
+        )  # Initialize annotator
         self.extract_tracks(im0)  # Extract tracks
 
         self.annotator.draw_region(
@@ -166,20 +172,26 @@ class ObjectCounter(BaseSolution):
         # Iterate over bounding boxes, track ids and classes index
         for box, track_id, cls in zip(self.boxes, self.track_ids, self.clss):
             # Draw bounding box and counting region
-            self.annotator.box_label(box, label=self.names[cls], color=colors(cls, True))
+            self.annotator.box_label(
+                box, label=self.names[cls], color=colors(cls, True)
+            )
             self.store_tracking_history(track_id, box)  # Store track history
             self.store_classwise_counts(cls)  # store classwise counts in dict
 
             # Draw tracks of objects
             self.annotator.draw_centroid_and_tracks(
-                self.track_line, color=colors(int(cls), True), track_thickness=self.line_width
+                self.track_line,
+                color=colors(int(cls), True),
+                track_thickness=self.line_width,
             )
 
             # store previous position of track for object counting
             prev_position = None
             if len(self.track_history[track_id]) > 1:
                 prev_position = self.track_history[track_id][-2]
-            self.count_objects(self.track_line, box, track_id, prev_position, cls)  # Perform object counting
+            self.count_objects(
+                self.track_line, box, track_id, prev_position, cls
+            )  # Perform object counting
 
         self.display_counts(im0)  # Display the counts on the frame
         self.display_output(im0)  # display output with base class function

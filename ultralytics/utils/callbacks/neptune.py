@@ -43,7 +43,9 @@ def _log_plot(title, plot_path):
 
     img = mpimg.imread(plot_path)
     fig = plt.figure()
-    ax = fig.add_axes([0, 0, 1, 1], frameon=False, aspect="auto", xticks=[], yticks=[])  # no ticks
+    ax = fig.add_axes(
+        [0, 0, 1, 1], frameon=False, aspect="auto", xticks=[], yticks=[]
+    )  # no ticks
     ax.imshow(img)
     run[f"Plots/{title}"].upload(fig)
 
@@ -57,17 +59,26 @@ def on_pretrain_routine_start(trainer):
             name=trainer.args.name,
             tags=["Ultralytics"],
         )
-        run["Configuration/Hyperparameters"] = {k: "" if v is None else v for k, v in vars(trainer.args).items()}
+        run["Configuration/Hyperparameters"] = {
+            k: "" if v is None else v for k, v in vars(trainer.args).items()
+        }
     except Exception as e:
-        LOGGER.warning(f"WARNING ⚠️ NeptuneAI installed but not initialized correctly, not logging this run. {e}")
+        LOGGER.warning(
+            f"WARNING ⚠️ NeptuneAI installed but not initialized correctly, not logging this run. {e}"
+        )
 
 
 def on_train_epoch_end(trainer):
     """Callback function called at end of each training epoch."""
-    _log_scalars(trainer.label_loss_items(trainer.tloss, prefix="train"), trainer.epoch + 1)
+    _log_scalars(
+        trainer.label_loss_items(trainer.tloss, prefix="train"), trainer.epoch + 1
+    )
     _log_scalars(trainer.lr, trainer.epoch + 1)
     if trainer.epoch == 1:
-        _log_images({f.stem: str(f) for f in trainer.save_dir.glob("train_batch*.jpg")}, "Mosaic")
+        _log_images(
+            {f.stem: str(f) for f in trainer.save_dir.glob("train_batch*.jpg")},
+            "Mosaic",
+        )
 
 
 def on_fit_epoch_end(trainer):
@@ -83,7 +94,9 @@ def on_val_end(validator):
     """Callback function called at end of each validation."""
     if run:
         # Log val_labels and val_pred
-        _log_images({f.stem: str(f) for f in validator.save_dir.glob("val*.jpg")}, "Validation")
+        _log_images(
+            {f.stem: str(f) for f in validator.save_dir.glob("val*.jpg")}, "Validation"
+        )
 
 
 def on_train_end(trainer):
@@ -96,11 +109,15 @@ def on_train_end(trainer):
             "confusion_matrix_normalized.png",
             *(f"{x}_curve.png" for x in ("F1", "PR", "P", "R")),
         ]
-        files = [(trainer.save_dir / f) for f in files if (trainer.save_dir / f).exists()]  # filter
+        files = [
+            (trainer.save_dir / f) for f in files if (trainer.save_dir / f).exists()
+        ]  # filter
         for f in files:
             _log_plot(title=f.stem, plot_path=f)
         # Log the final model
-        run[f"weights/{trainer.args.name or trainer.args.task}/{trainer.best.name}"].upload(File(str(trainer.best)))
+        run[
+            f"weights/{trainer.args.name or trainer.args.task}/{trainer.best.name}"
+        ].upload(File(str(trainer.best)))
 
 
 callbacks = (

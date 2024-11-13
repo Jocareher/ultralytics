@@ -64,19 +64,32 @@ class GMC:
             self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING)
 
         elif self.method == "sift":
-            self.detector = cv2.SIFT_create(nOctaveLayers=3, contrastThreshold=0.02, edgeThreshold=20)
-            self.extractor = cv2.SIFT_create(nOctaveLayers=3, contrastThreshold=0.02, edgeThreshold=20)
+            self.detector = cv2.SIFT_create(
+                nOctaveLayers=3, contrastThreshold=0.02, edgeThreshold=20
+            )
+            self.extractor = cv2.SIFT_create(
+                nOctaveLayers=3, contrastThreshold=0.02, edgeThreshold=20
+            )
             self.matcher = cv2.BFMatcher(cv2.NORM_L2)
 
         elif self.method == "ecc":
             number_of_iterations = 5000
             termination_eps = 1e-6
             self.warp_mode = cv2.MOTION_EUCLIDEAN
-            self.criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, number_of_iterations, termination_eps)
+            self.criteria = (
+                cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT,
+                number_of_iterations,
+                termination_eps,
+            )
 
         elif self.method == "sparseOptFlow":
             self.feature_params = dict(
-                maxCorners=1000, qualityLevel=0.01, minDistance=1, blockSize=3, useHarrisDetector=False, k=0.04
+                maxCorners=1000,
+                qualityLevel=0.01,
+                minDistance=1,
+                blockSize=3,
+                useHarrisDetector=False,
+                k=0.04,
             )
 
         elif self.method in {"none", "None", None}:
@@ -140,7 +153,9 @@ class GMC:
         # Downscale image
         if self.downscale > 1.0:
             frame = cv2.GaussianBlur(frame, (3, 3), 1.5)
-            frame = cv2.resize(frame, (width // self.downscale, height // self.downscale))
+            frame = cv2.resize(
+                frame, (width // self.downscale, height // self.downscale)
+            )
 
         # Handle first frame
         if not self.initializedFirstFrame:
@@ -155,7 +170,9 @@ class GMC:
         # Run the ECC algorithm. The results are stored in warp_matrix.
         # (cc, H) = cv2.findTransformECC(self.prevFrame, frame, H, self.warp_mode, self.criteria)
         try:
-            (_, H) = cv2.findTransformECC(self.prevFrame, frame, H, self.warp_mode, self.criteria, None, 1)
+            (_, H) = cv2.findTransformECC(
+                self.prevFrame, frame, H, self.warp_mode, self.criteria, None, 1
+            )
         except Exception as e:
             LOGGER.warning(f"WARNING: find transform failed. Set warp as identity {e}")
 
@@ -185,13 +202,18 @@ class GMC:
 
         # Downscale image
         if self.downscale > 1.0:
-            frame = cv2.resize(frame, (width // self.downscale, height // self.downscale))
+            frame = cv2.resize(
+                frame, (width // self.downscale, height // self.downscale)
+            )
             width = width // self.downscale
             height = height // self.downscale
 
         # Find the keypoints
         mask = np.zeros_like(frame)
-        mask[int(0.02 * height) : int(0.98 * height), int(0.02 * width) : int(0.98 * width)] = 255
+        mask[
+            int(0.02 * height) : int(0.98 * height),
+            int(0.02 * width) : int(0.98 * width),
+        ] = 255
         if detections is not None:
             for det in detections:
                 tlbr = (det[:4] / self.downscale).astype(np.int_)
@@ -327,7 +349,9 @@ class GMC:
 
         # Downscale image
         if self.downscale > 1.0:
-            frame = cv2.resize(frame, (width // self.downscale, height // self.downscale))
+            frame = cv2.resize(
+                frame, (width // self.downscale, height // self.downscale)
+            )
 
         # Find the keypoints
         keypoints = cv2.goodFeaturesToTrack(frame, mask=None, **self.feature_params)
@@ -340,7 +364,9 @@ class GMC:
             return H
 
         # Find correspondences
-        matchedKeypoints, status, _ = cv2.calcOpticalFlowPyrLK(self.prevFrame, frame, self.prevKeyPoints, None)
+        matchedKeypoints, status, _ = cv2.calcOpticalFlowPyrLK(
+            self.prevFrame, frame, self.prevKeyPoints, None
+        )
 
         # Leave good correspondences only
         prevPoints = []

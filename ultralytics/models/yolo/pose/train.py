@@ -37,7 +37,13 @@ class PoseTrainer(yolo.detect.DetectionTrainer):
 
     def get_model(self, cfg=None, weights=None, verbose=True):
         """Get pose estimation model with specified configuration and weights."""
-        model = PoseModel(cfg, ch=3, nc=self.data["nc"], data_kpt_shape=self.data["kpt_shape"], verbose=verbose)
+        model = PoseModel(
+            cfg,
+            ch=3,
+            nc=self.data["nc"],
+            data_kpt_shape=self.data["kpt_shape"],
+            verbose=verbose,
+        )
         if weights:
             model.load(weights)
 
@@ -52,7 +58,10 @@ class PoseTrainer(yolo.detect.DetectionTrainer):
         """Returns an instance of the PoseValidator class for validation."""
         self.loss_names = "box_loss", "pose_loss", "kobj_loss", "cls_loss", "dfl_loss"
         return yolo.pose.PoseValidator(
-            self.test_loader, save_dir=self.save_dir, args=copy(self.args), _callbacks=self.callbacks
+            self.test_loader,
+            save_dir=self.save_dir,
+            args=copy(self.args),
+            _callbacks=self.callbacks,
         )
 
     def plot_training_samples(self, batch, ni):

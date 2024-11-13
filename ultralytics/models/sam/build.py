@@ -13,7 +13,14 @@ import torch
 from ultralytics.utils.downloads import attempt_download_asset
 
 from .modules.decoders import MaskDecoder
-from .modules.encoders import FpnNeck, Hiera, ImageEncoder, ImageEncoderViT, MemoryEncoder, PromptEncoder
+from .modules.encoders import (
+    FpnNeck,
+    Hiera,
+    ImageEncoder,
+    ImageEncoderViT,
+    MemoryEncoder,
+    PromptEncoder,
+)
 from .modules.memory_attention import MemoryAttention, MemoryAttentionLayer
 from .modules.sam import SAM2Model, SAMModel
 from .modules.tiny_encoder import TinyViT
@@ -260,7 +267,9 @@ def _build_sam2(
         ),
         scalp=1,
     )
-    memory_attention = MemoryAttention(d_model=256, pos_enc_at_input=True, num_layers=4, layer=MemoryAttentionLayer())
+    memory_attention = MemoryAttention(
+        d_model=256, pos_enc_at_input=True, num_layers=4, layer=MemoryAttentionLayer()
+    )
     memory_encoder = MemoryEncoder(out_dim=64)
 
     is_sam2_1 = checkpoint is not None and "sam2.1" in checkpoint
@@ -353,6 +362,8 @@ def build_sam(ckpt="sam_b.pt"):
             model_builder = sam_model_map.get(k)
 
     if not model_builder:
-        raise FileNotFoundError(f"{ckpt} is not a supported SAM model. Available models are: \n {sam_model_map.keys()}")
+        raise FileNotFoundError(
+            f"{ckpt} is not a supported SAM model. Available models are: \n {sam_model_map.keys()}"
+        )
 
     return model_builder(ckpt)

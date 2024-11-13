@@ -25,10 +25,22 @@ class FastSAM(Model):
         """Call the __init__ method of the parent class (YOLO) with the updated default model."""
         if str(model) == "FastSAM.pt":
             model = "FastSAM-x.pt"
-        assert Path(model).suffix not in {".yaml", ".yml"}, "FastSAM models only support pre-trained models."
+        assert Path(model).suffix not in {
+            ".yaml",
+            ".yml",
+        }, "FastSAM models only support pre-trained models."
         super().__init__(model=model, task="segment")
 
-    def predict(self, source, stream=False, bboxes=None, points=None, labels=None, texts=None, **kwargs):
+    def predict(
+        self,
+        source,
+        stream=False,
+        bboxes=None,
+        points=None,
+        labels=None,
+        texts=None,
+        **kwargs,
+    ):
         """
         Perform segmentation prediction on image or video source.
 
@@ -52,4 +64,6 @@ class FastSAM(Model):
     @property
     def task_map(self):
         """Returns a dictionary mapping segment task to corresponding predictor and validator classes."""
-        return {"segment": {"predictor": FastSAMPredictor, "validator": FastSAMValidator}}
+        return {
+            "segment": {"predictor": FastSAMPredictor, "validator": FastSAMValidator}
+        }

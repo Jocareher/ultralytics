@@ -27,7 +27,10 @@ def test_amp():
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(True, reason="CUDA export tests disabled pending additional Ultralytics GPU server availability")
+@pytest.mark.skipif(
+    True,
+    reason="CUDA export tests disabled pending additional Ultralytics GPU server availability",
+)
 @pytest.mark.skipif(not CUDA_IS_AVAILABLE, reason="CUDA is not available")
 @pytest.mark.parametrize(
     "task, dynamic, int8, half, batch",
@@ -35,7 +38,9 @@ def test_amp():
         (task, dynamic, int8, half, batch)
         # Note: tests reduced below pending compute availability expansion as GPU CI runner utilization is high
         # for task, dynamic, int8, half, batch in product(TASKS, [True, False], [True, False], [True, False], [1, 2])
-        for task, dynamic, int8, half, batch in product(TASKS, [True], [True], [False], [2])
+        for task, dynamic, int8, half, batch in product(
+            TASKS, [True], [True], [False], [2]
+        )
         if not (int8 and half)  # exclude cases where both int8 and half are True
     ],
 )
@@ -52,7 +57,9 @@ def test_export_engine_matrix(task, dynamic, int8, half, batch):
         workspace=1,  # reduce workspace GB for less resource utilization during testing
         simplify=True,  # use 'onnxslim'
     )
-    YOLO(file)([SOURCE] * batch, imgsz=64 if dynamic else 32)  # exported model inference
+    YOLO(file)(
+        [SOURCE] * batch, imgsz=64 if dynamic else 32
+    )  # exported model inference
     Path(file).unlink()  # cleanup
     Path(file).with_suffix(".cache").unlink() if int8 else None  # cleanup INT8 cache
 
@@ -61,7 +68,9 @@ def test_export_engine_matrix(task, dynamic, int8, half, batch):
 def test_train():
     """Test model training on a minimal dataset using available CUDA devices."""
     device = 0 if CUDA_DEVICE_COUNT == 1 else [0, 1]
-    YOLO(MODEL).train(data="coco8.yaml", imgsz=64, epochs=1, device=device)  # requires imgsz>=64
+    YOLO(MODEL).train(
+        data="coco8.yaml", imgsz=64, epochs=1, device=device
+    )  # requires imgsz>=64
 
 
 @pytest.mark.slow
@@ -106,7 +115,9 @@ def test_utils_benchmarks():
 
     # Pre-export a dynamic engine model to use dynamic inference
     YOLO(MODEL).export(format="engine", imgsz=32, dynamic=True, batch=1)
-    ProfileModels([MODEL], imgsz=32, half=False, min_time=1, num_timed_runs=3, num_warmup_runs=1).profile()
+    ProfileModels(
+        [MODEL], imgsz=32, half=False, min_time=1, num_timed_runs=3, num_warmup_runs=1
+    ).profile()
 
 
 @pytest.mark.skipif(not CUDA_IS_AVAILABLE, reason="CUDA is not available")
@@ -137,13 +148,26 @@ def test_predict_sam():
     model(ASSETS / "zidane.jpg", points=[[900, 370]], labels=[1], device=0)
 
     # Run inference with multiple 2D points and 1D labels
-    model(ASSETS / "zidane.jpg", points=[[400, 370], [900, 370]], labels=[1, 1], device=0)
+    model(
+        ASSETS / "zidane.jpg", points=[[400, 370], [900, 370]], labels=[1, 1], device=0
+    )
 
     # Run inference with 3D points and 2D labels (multiple points per object)
-    model(ASSETS / "zidane.jpg", points=[[[900, 370], [1000, 100]]], labels=[[1, 1]], device=0)
+    model(
+        ASSETS / "zidane.jpg",
+        points=[[[900, 370], [1000, 100]]],
+        labels=[[1, 1]],
+        device=0,
+    )
 
     # Create SAMPredictor
-    overrides = dict(conf=0.25, task="segment", mode="predict", imgsz=1024, model=WEIGHTS_DIR / "mobile_sam.pt")
+    overrides = dict(
+        conf=0.25,
+        task="segment",
+        mode="predict",
+        imgsz=1024,
+        model=WEIGHTS_DIR / "mobile_sam.pt",
+    )
     predictor = SAMPredictor(overrides=overrides)
 
     # Set image

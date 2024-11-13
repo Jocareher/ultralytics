@@ -31,7 +31,15 @@ class HungarianMatcher(nn.Module):
         _cost_mask(bs, num_gts, masks=None, gt_mask=None): Computes the mask cost and dice cost if masks are predicted.
     """
 
-    def __init__(self, cost_gain=None, use_fl=True, with_mask=False, num_sample_points=12544, alpha=0.25, gamma=2.0):
+    def __init__(
+        self,
+        cost_gain=None,
+        use_fl=True,
+        with_mask=False,
+        num_sample_points=12544,
+        alpha=0.25,
+        gamma=2.0,
+    ):
         """Initializes a HungarianMatcher module for optimal assignment of predicted and ground truth bounding boxes."""
         super().__init__()
         if cost_gain is None:
@@ -43,7 +51,16 @@ class HungarianMatcher(nn.Module):
         self.alpha = alpha
         self.gamma = gamma
 
-    def forward(self, pred_bboxes, pred_scores, gt_bboxes, gt_cls, gt_groups, masks=None, gt_mask=None):
+    def forward(
+        self,
+        pred_bboxes,
+        pred_scores,
+        gt_bboxes,
+        gt_cls,
+        gt_groups,
+        masks=None,
+        gt_mask=None,
+    ):
         """
         Forward pass for HungarianMatcher. This function computes costs based on prediction and ground truth
         (classification cost, L1 cost between boxes and GIoU cost between boxes) and finds the optimal matching between
@@ -71,29 +88,46 @@ class HungarianMatcher(nn.Module):
         bs, nq, nc = pred_scores.shape
 
         if sum(gt_groups) == 0:
-            return [(torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)) for _ in range(bs)]
+            return [
+                (torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long))
+                for _ in range(bs)
+            ]
 
         # We flatten to compute the cost matrices in a batch
         # [batch_size * num_queries, num_classes]
         pred_scores = pred_scores.detach().view(-1, nc)
-        pred_scores = F.sigmoid(pred_scores) if self.use_fl else F.softmax(pred_scores, dim=-1)
+        pred_scores = (
+            F.sigmoid(pred_scores) if self.use_fl else F.softmax(pred_scores, dim=-1)
+        )
         # [batch_size * num_queries, 4]
         pred_bboxes = pred_bboxes.detach().view(-1, 4)
 
         # Compute the classification cost
         pred_scores = pred_scores[:, gt_cls]
         if self.use_fl:
-            neg_cost_class = (1 - self.alpha) * (pred_scores**self.gamma) * (-(1 - pred_scores + 1e-8).log())
-            pos_cost_class = self.alpha * ((1 - pred_scores) ** self.gamma) * (-(pred_scores + 1e-8).log())
+            neg_cost_class = (
+                (1 - self.alpha)
+                * (pred_scores**self.gamma)
+                * (-(1 - pred_scores + 1e-8).log())
+            )
+            pos_cost_class = (
+                self.alpha
+                * ((1 - pred_scores) ** self.gamma)
+                * (-(pred_scores + 1e-8).log())
+            )
             cost_class = pos_cost_class - neg_cost_class
         else:
             cost_class = -pred_scores
 
         # Compute the L1 cost between boxes
-        cost_bbox = (pred_bboxes.unsqueeze(1) - gt_bboxes.unsqueeze(0)).abs().sum(-1)  # (bs*num_queries, num_gt)
+        cost_bbox = (
+            (pred_bboxes.unsqueeze(1) - gt_bboxes.unsqueeze(0)).abs().sum(-1)
+        )  # (bs*num_queries, num_gt)
 
         # Compute the GIoU cost between boxes, (bs*num_queries, num_gt)
-        cost_giou = 1.0 - bbox_iou(pred_bboxes.unsqueeze(1), gt_bboxes.unsqueeze(0), xywh=True, GIoU=True).squeeze(-1)
+        cost_giou = 1.0 - bbox_iou(
+            pred_bboxes.unsqueeze(1), gt_bboxes.unsqueeze(0), xywh=True, GIoU=True
+        ).squeeze(-1)
 
         # Final cost matrix
         C = (
@@ -109,10 +143,17 @@ class HungarianMatcher(nn.Module):
         C[C.isnan() | C.isinf()] = 0.0
 
         C = C.view(bs, nq, -1).cpu()
-        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(gt_groups, -1))]
-        gt_groups = torch.as_tensor([0, *gt_groups[:-1]]).cumsum_(0)  # (idx for queries, idx for gt)
+        indices = [
+            linear_sum_assignment(c[i]) for i, c in enumerate(C.split(gt_groups, -1))
+        ]
+        gt_groups = torch.as_tensor([0, *gt_groups[:-1]]).cumsum_(
+            0
+        )  # (idx for queries, idx for gt)
         return [
-            (torch.tensor(i, dtype=torch.long), torch.tensor(j, dtype=torch.long) + gt_groups[k])
+            (
+                torch.tensor(i, dtype=torch.long),
+                torch.tensor(j, dtype=torch.long) + gt_groups[k],
+            )
             for k, (i, j) in enumerate(indices)
         ]
 
@@ -148,7 +189,14 @@ class HungarianMatcher(nn.Module):
 
 
 def get_cdn_group(
-    batch, num_classes, num_queries, class_embed, num_dn=100, cls_noise_ratio=0.5, box_noise_scale=1.0, training=False
+    batch,
+    num_classes,
+    num_queries,
+    class_embed,
+    num_dn=100,
+    cls_noise_ratio=0.5,
+    box_noise_scale=1.0,
+    training=False,
 ):
     """
     Get contrastive denoising training group. This function creates a contrastive denoising training group with positive
@@ -195,20 +243,27 @@ def get_cdn_group(
 
     # Positive and negative mask
     # (bs*num*num_group, ), the second total_num*num_group part as negative samples
-    neg_idx = torch.arange(total_num * num_group, dtype=torch.long, device=gt_bbox.device) + num_group * total_num
+    neg_idx = (
+        torch.arange(total_num * num_group, dtype=torch.long, device=gt_bbox.device)
+        + num_group * total_num
+    )
 
     if cls_noise_ratio > 0:
         # Half of bbox prob
         mask = torch.rand(dn_cls.shape) < (cls_noise_ratio * 0.5)
         idx = torch.nonzero(mask).squeeze(-1)
         # Randomly put a new one here
-        new_label = torch.randint_like(idx, 0, num_classes, dtype=dn_cls.dtype, device=dn_cls.device)
+        new_label = torch.randint_like(
+            idx, 0, num_classes, dtype=dn_cls.dtype, device=dn_cls.device
+        )
         dn_cls[idx] = new_label
 
     if box_noise_scale > 0:
         known_bbox = xywh2xyxy(dn_bbox)
 
-        diff = (dn_bbox[..., 2:] * 0.5).repeat(1, 2) * box_noise_scale  # 2*num_group*bs*num, 4
+        diff = (dn_bbox[..., 2:] * 0.5).repeat(
+            1, 2
+        ) * box_noise_scale  # 2*num_group*bs*num, 4
 
         rand_sign = torch.randint_like(dn_bbox, 0, 2) * 2.0 - 1.0
         rand_part = torch.rand_like(dn_bbox)
@@ -225,7 +280,9 @@ def get_cdn_group(
     padding_cls = torch.zeros(bs, num_dn, dn_cls_embed.shape[-1], device=gt_cls.device)
     padding_bbox = torch.zeros(bs, num_dn, 4, device=gt_bbox.device)
 
-    map_indices = torch.cat([torch.tensor(range(num), dtype=torch.long) for num in gt_groups])
+    map_indices = torch.cat(
+        [torch.tensor(range(num), dtype=torch.long) for num in gt_groups]
+    )
     pos_idx = torch.stack([map_indices + max_nums * i for i in range(num_group)], dim=0)
 
     map_indices = torch.cat([map_indices + max_nums * i for i in range(2 * num_group)])
@@ -239,14 +296,26 @@ def get_cdn_group(
     # Reconstruct cannot see each other
     for i in range(num_group):
         if i == 0:
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), max_nums * 2 * (i + 1) : num_dn] = True
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1),
+                max_nums * 2 * (i + 1) : num_dn,
+            ] = True
         if i == num_group - 1:
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * i * 2] = True
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * i * 2
+            ] = True
         else:
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), max_nums * 2 * (i + 1) : num_dn] = True
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * 2 * i] = True
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1),
+                max_nums * 2 * (i + 1) : num_dn,
+            ] = True
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * 2 * i
+            ] = True
     dn_meta = {
-        "dn_pos_idx": [p.reshape(-1) for p in pos_idx.cpu().split(list(gt_groups), dim=1)],
+        "dn_pos_idx": [
+            p.reshape(-1) for p in pos_idx.cpu().split(list(gt_groups), dim=1)
+        ],
         "dn_num_group": num_group,
         "dn_num_split": [num_dn, num_queries],
     }

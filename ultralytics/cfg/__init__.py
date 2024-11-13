@@ -218,7 +218,10 @@ def cfg2dict(cfg):
     return cfg
 
 
-def get_cfg(cfg: Union[str, Path, Dict, SimpleNamespace] = DEFAULT_CFG_DICT, overrides: Dict = None):
+def get_cfg(
+    cfg: Union[str, Path, Dict, SimpleNamespace] = DEFAULT_CFG_DICT,
+    overrides: Dict = None,
+):
     """
     Load and merge configuration data from a file or dictionary, with optional overrides.
 
@@ -257,7 +260,9 @@ def get_cfg(cfg: Union[str, Path, Dict, SimpleNamespace] = DEFAULT_CFG_DICT, ove
             cfg[k] = str(cfg[k])
     if cfg.get("name") == "model":  # assign model to 'name' arg
         cfg["name"] = cfg.get("model", "").split(".")[0]
-        LOGGER.warning(f"WARNING ⚠️ 'name=model' automatically updated to 'name={cfg['name']}'.")
+        LOGGER.warning(
+            f"WARNING ⚠️ 'name=model' automatically updated to 'name={cfg['name']}'."
+        )
 
     # Type and Value checks
     check_cfg(cfg)
@@ -312,11 +317,15 @@ def check_cfg(cfg, hard=True):
                         )
                     cfg[k] = v = float(v)
                 if not (0.0 <= v <= 1.0):
-                    raise ValueError(f"'{k}={v}' is an invalid value. " f"Valid '{k}' values are between 0.0 and 1.0.")
+                    raise ValueError(
+                        f"'{k}={v}' is an invalid value. "
+                        f"Valid '{k}' values are between 0.0 and 1.0."
+                    )
             elif k in CFG_INT_KEYS and not isinstance(v, int):
                 if hard:
                     raise TypeError(
-                        f"'{k}={v}' is of invalid type {type(v).__name__}. " f"'{k}' must be an int (i.e. '{k}=8')"
+                        f"'{k}={v}' is of invalid type {type(v).__name__}. "
+                        f"'{k}' must be an int (i.e. '{k}=8')"
                     )
                 cfg[k] = int(v)
             elif k in CFG_BOOL_KEYS and not isinstance(v, bool):
@@ -353,9 +362,15 @@ def get_save_dir(args, name=None):
     else:
         from ultralytics.utils.files import increment_path
 
-        project = args.project or (ROOT.parent / "tests/tmp/runs" if TESTS_RUNNING else RUNS_DIR) / args.task
+        project = (
+            args.project
+            or (ROOT.parent / "tests/tmp/runs" if TESTS_RUNNING else RUNS_DIR)
+            / args.task
+        )
         name = name or args.name or f"{args.mode}"
-        save_dir = increment_path(Path(project) / name, exist_ok=args.exist_ok if RANK in {-1, 0} else True)
+        save_dir = increment_path(
+            Path(project) / name, exist_ok=args.exist_ok if RANK in {-1, 0} else True
+        )
 
     return Path(save_dir)
 
@@ -430,7 +445,9 @@ def check_dict_alignment(base: Dict, custom: Dict, e=None):
         string = ""
         for x in mismatched:
             matches = get_close_matches(x, base_keys)  # key list
-            matches = [f"{k}={base[k]}" if base.get(k) is not None else k for k in matches]
+            matches = [
+                f"{k}={base[k]}" if base.get(k) is not None else k for k in matches
+            ]
             match_str = f"Similar arguments are i.e. {matches}." if matches else ""
             string += f"'{colorstr('red', 'bold', x)}' is not a valid YOLO argument. {match_str}\n"
         raise SyntaxError(string + CLI_HELP_MSG) from e
@@ -470,7 +487,9 @@ def merge_equals_args(args: List[str]) -> List[str]:
             new_args[-1] += f"={args[i + 1]}"
             i += 2
             continue
-        elif arg.endswith("=") and i < len(args) - 1 and "=" not in args[i + 1]:  # merge ['arg=', 'val']
+        elif (
+            arg.endswith("=") and i < len(args) - 1 and "=" not in args[i + 1]
+        ):  # merge ['arg=', 'val']
             new_args.append(f"{arg}{args[i + 1]}")
             i += 2
             continue
@@ -556,7 +575,9 @@ def handle_yolo_settings(args: List[str]) -> None:
             if args[0] == "reset":
                 SETTINGS_FILE.unlink()  # delete the settings file
                 SETTINGS.reset()  # create new settings
-                LOGGER.info("Settings reset successfully")  # inform the user that settings have been reset
+                LOGGER.info(
+                    "Settings reset successfully"
+                )  # inform the user that settings have been reset
             else:  # save a new setting
                 new = dict(parse_key_value_pair(a) for a in args)
                 check_dict_alignment(SETTINGS, new)
@@ -585,7 +606,15 @@ def handle_streamlit_inference():
     """
     checks.check_requirements("streamlit>=1.29.0")
     LOGGER.info("💡 Loading Ultralytics Live Inference app...")
-    subprocess.run(["streamlit", "run", ROOT / "solutions/streamlit_inference.py", "--server.headless", "true"])
+    subprocess.run(
+        [
+            "streamlit",
+            "run",
+            ROOT / "solutions/streamlit_inference.py",
+            "--server.headless",
+            "true",
+        ]
+    )
 
 
 def parse_key_value_pair(pair: str = "key=value"):
@@ -710,27 +739,46 @@ def entrypoint(debug=""):
         "copy-cfg": copy_default_cfg,
         "streamlit-predict": lambda: handle_streamlit_inference(),
     }
-    full_args_dict = {**DEFAULT_CFG_DICT, **{k: None for k in TASKS}, **{k: None for k in MODES}, **special}
+    full_args_dict = {
+        **DEFAULT_CFG_DICT,
+        **{k: None for k in TASKS},
+        **{k: None for k in MODES},
+        **special,
+    }
 
     # Define common misuses of special commands, i.e. -h, -help, --help
     special.update({k[0]: v for k, v in special.items()})  # singular
-    special.update({k[:-1]: v for k, v in special.items() if len(k) > 1 and k.endswith("s")})  # singular
-    special = {**special, **{f"-{k}": v for k, v in special.items()}, **{f"--{k}": v for k, v in special.items()}}
+    special.update(
+        {k[:-1]: v for k, v in special.items() if len(k) > 1 and k.endswith("s")}
+    )  # singular
+    special = {
+        **special,
+        **{f"-{k}": v for k, v in special.items()},
+        **{f"--{k}": v for k, v in special.items()},
+    }
 
     overrides = {}  # basic overrides, i.e. imgsz=320
     for a in merge_equals_args(args):  # merge spaces around '=' sign
         if a.startswith("--"):
-            LOGGER.warning(f"WARNING ⚠️ argument '{a}' does not require leading dashes '--', updating to '{a[2:]}'.")
+            LOGGER.warning(
+                f"WARNING ⚠️ argument '{a}' does not require leading dashes '--', updating to '{a[2:]}'."
+            )
             a = a[2:]
         if a.endswith(","):
-            LOGGER.warning(f"WARNING ⚠️ argument '{a}' does not require trailing comma ',', updating to '{a[:-1]}'.")
+            LOGGER.warning(
+                f"WARNING ⚠️ argument '{a}' does not require trailing comma ',', updating to '{a[:-1]}'."
+            )
             a = a[:-1]
         if "=" in a:
             try:
                 k, v = parse_key_value_pair(a)
                 if k == "cfg" and v is not None:  # custom.yaml passed
                     LOGGER.info(f"Overriding {DEFAULT_CFG_PATH} with {v}")
-                    overrides = {k: val for k, val in yaml_load(checks.check_yaml(v)).items() if k != "cfg"}
+                    overrides = {
+                        k: val
+                        for k, val in yaml_load(checks.check_yaml(v)).items()
+                        if k != "cfg"
+                    }
                 else:
                     overrides[k] = v
             except (NameError, SyntaxError, ValueError, AssertionError) as e:
@@ -744,7 +792,9 @@ def entrypoint(debug=""):
             special[a.lower()]()
             return
         elif a in DEFAULT_CFG_DICT and isinstance(DEFAULT_CFG_DICT[a], bool):
-            overrides[a] = True  # auto-True for default bool args, i.e. 'yolo show' sets show=True
+            overrides[
+                a
+            ] = True  # auto-True for default bool args, i.e. 'yolo show' sets show=True
         elif a in DEFAULT_CFG_DICT:
             raise SyntaxError(
                 f"'{colorstr('red', 'bold', a)}' is a valid YOLO argument but is missing an '=' sign "
@@ -760,15 +810,21 @@ def entrypoint(debug=""):
     mode = overrides.get("mode")
     if mode is None:
         mode = DEFAULT_CFG.mode or "predict"
-        LOGGER.warning(f"WARNING ⚠️ 'mode' argument is missing. Valid modes are {MODES}. Using default 'mode={mode}'.")
+        LOGGER.warning(
+            f"WARNING ⚠️ 'mode' argument is missing. Valid modes are {MODES}. Using default 'mode={mode}'."
+        )
     elif mode not in MODES:
-        raise ValueError(f"Invalid 'mode={mode}'. Valid modes are {MODES}.\n{CLI_HELP_MSG}")
+        raise ValueError(
+            f"Invalid 'mode={mode}'. Valid modes are {MODES}.\n{CLI_HELP_MSG}"
+        )
 
     # Task
     task = overrides.pop("task", None)
     if task:
         if task not in TASKS:
-            raise ValueError(f"Invalid 'task={task}'. Valid tasks are {TASKS}.\n{CLI_HELP_MSG}")
+            raise ValueError(
+                f"Invalid 'task={task}'. Valid tasks are {TASKS}.\n{CLI_HELP_MSG}"
+            )
         if "model" not in overrides:
             overrides["model"] = TASK2MODEL[task]
 
@@ -776,7 +832,9 @@ def entrypoint(debug=""):
     model = overrides.pop("model", DEFAULT_CFG.model)
     if model is None:
         model = "yolo11n.pt"
-        LOGGER.warning(f"WARNING ⚠️ 'model' argument is missing. Using default 'model={model}'.")
+        LOGGER.warning(
+            f"WARNING ⚠️ 'model' argument is missing. Using default 'model={model}'."
+        )
     overrides["model"] = model
     stem = Path(model).stem.lower()
     if "rtdetr" in stem:  # guess architecture
@@ -810,17 +868,27 @@ def entrypoint(debug=""):
     # Mode
     if mode in {"predict", "track"} and "source" not in overrides:
         overrides["source"] = (
-            "https://ultralytics.com/images/boats.jpg" if task == "obb" else DEFAULT_CFG.source or ASSETS
+            "https://ultralytics.com/images/boats.jpg"
+            if task == "obb"
+            else DEFAULT_CFG.source or ASSETS
         )
-        LOGGER.warning(f"WARNING ⚠️ 'source' argument is missing. Using default 'source={overrides['source']}'.")
+        LOGGER.warning(
+            f"WARNING ⚠️ 'source' argument is missing. Using default 'source={overrides['source']}'."
+        )
     elif mode in {"train", "val"}:
         if "data" not in overrides and "resume" not in overrides:
-            overrides["data"] = DEFAULT_CFG.data or TASK2DATA.get(task or DEFAULT_CFG.task, DEFAULT_CFG.data)
-            LOGGER.warning(f"WARNING ⚠️ 'data' argument is missing. Using default 'data={overrides['data']}'.")
+            overrides["data"] = DEFAULT_CFG.data or TASK2DATA.get(
+                task or DEFAULT_CFG.task, DEFAULT_CFG.data
+            )
+            LOGGER.warning(
+                f"WARNING ⚠️ 'data' argument is missing. Using default 'data={overrides['data']}'."
+            )
     elif mode == "export":
         if "format" not in overrides:
             overrides["format"] = DEFAULT_CFG.format or "torchscript"
-            LOGGER.warning(f"WARNING ⚠️ 'format' argument is missing. Using default 'format={overrides['format']}'.")
+            LOGGER.warning(
+                f"WARNING ⚠️ 'format' argument is missing. Using default 'format={overrides['format']}'."
+            )
 
     # Run command in python
     getattr(model, mode)(**overrides)  # default args from model

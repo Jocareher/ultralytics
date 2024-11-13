@@ -111,7 +111,11 @@ class ImageEncoderViT(nn.Module):
         self.pos_embed: Optional[nn.Parameter] = None
         if use_abs_pos:
             # Initialize absolute positional embedding with pretrain image size.
-            self.pos_embed = nn.Parameter(torch.zeros(1, img_size // patch_size, img_size // patch_size, embed_dim))
+            self.pos_embed = nn.Parameter(
+                torch.zeros(
+                    1, img_size // patch_size, img_size // patch_size, embed_dim
+                )
+            )
 
         self.blocks = nn.ModuleList()
         for i in range(depth):
@@ -152,7 +156,10 @@ class ImageEncoderViT(nn.Module):
         x = self.patch_embed(x)
         if self.pos_embed is not None:
             pos_embed = (
-                F.interpolate(self.pos_embed.permute(0, 3, 1, 2), scale_factor=self.img_size / 1024).permute(0, 2, 3, 1)
+                F.interpolate(
+                    self.pos_embed.permute(0, 3, 1, 2),
+                    scale_factor=self.img_size / 1024,
+                ).permute(0, 2, 3, 1)
                 if self.img_size != 1024
                 else self.pos_embed
             )
@@ -240,11 +247,16 @@ class PromptEncoder(nn.Module):
         self.pe_layer = PositionEmbeddingRandom(embed_dim // 2)
 
         self.num_point_embeddings: int = 4  # pos/neg point + 2 box corners
-        point_embeddings = [nn.Embedding(1, embed_dim) for _ in range(self.num_point_embeddings)]
+        point_embeddings = [
+            nn.Embedding(1, embed_dim) for _ in range(self.num_point_embeddings)
+        ]
         self.point_embeddings = nn.ModuleList(point_embeddings)
         self.not_a_point_embed = nn.Embedding(1, embed_dim)
 
-        self.mask_input_size = (4 * image_embedding_size[0], 4 * image_embedding_size[1])
+        self.mask_input_size = (
+            4 * image_embedding_size[0],
+            4 * image_embedding_size[1],
+        )
         self.mask_downscaling = nn.Sequential(
             nn.Conv2d(1, mask_in_chans // 4, kernel_size=2, stride=2),
             LayerNorm2d(mask_in_chans // 4),
@@ -275,7 +287,9 @@ class PromptEncoder(nn.Module):
         """
         return self.pe_layer(self.image_embedding_size).unsqueeze(0)
 
-    def _embed_points(self, points: torch.Tensor, labels: torch.Tensor, pad: bool) -> torch.Tensor:
+    def _embed_points(
+        self, points: torch.Tensor, labels: torch.Tensor, pad: bool
+    ) -> torch.Tensor:
         """Embeds point prompts by applying positional encoding and label-specific embeddings."""
         points = points + 0.5  # Shift to center of pixel
         if pad:
@@ -283,7 +297,9 @@ class PromptEncoder(nn.Module):
             padding_label = -torch.ones((labels.shape[0], 1), device=labels.device)
             points = torch.cat([points, padding_point], dim=1)
             labels = torch.cat([labels, padding_label], dim=1)
-        point_embedding = self.pe_layer.forward_with_coords(points, self.input_image_size)
+        point_embedding = self.pe_layer.forward_with_coords(
+            points, self.input_image_size
+        )
         point_embedding[labels == -1] = 0.0
         point_embedding[labels == -1] += self.not_a_point_embed.weight
         point_embedding[labels == 0] += self.point_embeddings[0].weight
@@ -296,7 +312,9 @@ class PromptEncoder(nn.Module):
         """Embeds box prompts by applying positional encoding and adding corner embeddings."""
         boxes = boxes + 0.5  # Shift to center of pixel
         coords = boxes.reshape(-1, 2, 2)
-        corner_embedding = self.pe_layer.forward_with_coords(coords, self.input_image_size)
+        corner_embedding = self.pe_layer.forward_with_coords(
+            coords, self.input_image_size
+        )
         corner_embedding[:, 0, :] += self.point_embeddings[2].weight
         corner_embedding[:, 1, :] += self.point_embeddings[3].weight
         return corner_embedding
@@ -356,7 +374,9 @@ class PromptEncoder(nn.Module):
             torch.Size([1, 7, 256]) torch.Size([1, 256, 64, 64])
         """
         bs = self._get_batch_size(points, boxes, masks)
-        sparse_embeddings = torch.empty((bs, 0, self.embed_dim), device=self._get_device())
+        sparse_embeddings = torch.empty(
+            (bs, 0, self.embed_dim), device=self._get_device()
+        )
         if points is not None:
             coords, labels = points
             point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
@@ -627,7 +647,9 @@ class FpnNeck(nn.Module):
                     prev_features.to(dtype=torch.float32),
                     scale_factor=2.0,
                     mode=self.fpn_interp_model,
-                    align_corners=(None if self.fpn_interp_model == "nearest" else False),
+                    align_corners=(
+                        None if self.fpn_interp_model == "nearest" else False
+                    ),
                     antialias=False,
                 )
                 prev_features = lateral_features + top_down_features
@@ -726,10 +748,16 @@ class Hiera(nn.Module):
 
         # Windowed positional embedding (https://arxiv.org/abs/2311.05613)
         self.window_pos_embed_bkg_spatial_size = window_pos_embed_bkg_spatial_size
-        self.pos_embed = nn.Parameter(torch.zeros(1, embed_dim, *self.window_pos_embed_bkg_spatial_size))
-        self.pos_embed_window = nn.Parameter(torch.zeros(1, embed_dim, self.window_spec[0], self.window_spec[0]))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, embed_dim, *self.window_pos_embed_bkg_spatial_size)
+        )
+        self.pos_embed_window = nn.Parameter(
+            torch.zeros(1, embed_dim, self.window_spec[0], self.window_spec[0])
+        )
 
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, depth)
+        ]  # stochastic depth decay rule
 
         cur_stage = 1
         self.blocks = nn.ModuleList()
@@ -772,7 +800,9 @@ class Hiera(nn.Module):
         h, w = hw
         window_embed = self.pos_embed_window
         pos_embed = F.interpolate(self.pos_embed, size=(h, w), mode="bicubic")
-        pos_embed = pos_embed + window_embed.tile([x // y for x, y in zip(pos_embed.shape, window_embed.shape)])
+        pos_embed = pos_embed + window_embed.tile(
+            [x // y for x, y in zip(pos_embed.shape, window_embed.shape)]
+        )
         pos_embed = pos_embed.permute(0, 2, 3, 1)
         return pos_embed
 
@@ -787,7 +817,9 @@ class Hiera(nn.Module):
         outputs = []
         for i, blk in enumerate(self.blocks):
             x = blk(x)
-            if (i == self.stage_ends[-1]) or (i in self.stage_ends and self.return_interm_layers):
+            if (i == self.stage_ends[-1]) or (
+                i in self.stage_ends and self.return_interm_layers
+            ):
                 feats = x.permute(0, 3, 1, 2)
                 outputs.append(feats)
 

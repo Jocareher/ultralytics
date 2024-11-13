@@ -89,21 +89,31 @@ class ParkingPtsSelection:
         """Uploads and displays an image on the canvas, resizing it to fit within specified dimensions."""
         from PIL import Image, ImageTk  # scope because ImageTk requires tkinter package
 
-        self.image = Image.open(self.filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")]))
+        self.image = Image.open(
+            self.filedialog.askopenfilename(
+                filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")]
+            )
+        )
         if not self.image:
             return
 
         self.imgw, self.imgh = self.image.size
         aspect_ratio = self.imgw / self.imgh
         canvas_width = (
-            min(self.canvas_max_width, self.imgw) if aspect_ratio > 1 else int(self.canvas_max_height * aspect_ratio)
+            min(self.canvas_max_width, self.imgw)
+            if aspect_ratio > 1
+            else int(self.canvas_max_height * aspect_ratio)
         )
         canvas_height = (
-            min(self.canvas_max_height, self.imgh) if aspect_ratio <= 1 else int(canvas_width / aspect_ratio)
+            min(self.canvas_max_height, self.imgh)
+            if aspect_ratio <= 1
+            else int(canvas_width / aspect_ratio)
         )
 
         self.canvas.config(width=canvas_width, height=canvas_height)
-        self.canvas_image = ImageTk.PhotoImage(self.image.resize((canvas_width, canvas_height), Image.LANCZOS))
+        self.canvas_image = ImageTk.PhotoImage(
+            self.image.resize((canvas_width, canvas_height), Image.LANCZOS)
+        )
         self.canvas.create_image(0, 0, anchor=self.tk.NW, image=self.canvas_image)
         self.canvas.bind("<Button-1>", self.on_canvas_click)
 
@@ -112,7 +122,9 @@ class ParkingPtsSelection:
     def on_canvas_click(self, event):
         """Handles mouse clicks to add points for bounding boxes on the canvas."""
         self.current_box.append((event.x, event.y))
-        self.canvas.create_oval(event.x - 3, event.y - 3, event.x + 3, event.y + 3, fill="red")
+        self.canvas.create_oval(
+            event.x - 3, event.y - 3, event.x + 3, event.y + 3, fill="red"
+        )
         if len(self.current_box) == 4:
             self.rg_data.append(self.current_box.copy())
             self.draw_box(self.current_box)
@@ -140,11 +152,19 @@ class ParkingPtsSelection:
 
     def save_to_json(self):
         """Saves the selected parking zone points to a JSON file with scaled coordinates."""
-        scale_w, scale_h = self.imgw / self.canvas.winfo_width(), self.imgh / self.canvas.winfo_height()
-        data = [{"points": [(int(x * scale_w), int(y * scale_h)) for x, y in box]} for box in self.rg_data]
+        scale_w, scale_h = (
+            self.imgw / self.canvas.winfo_width(),
+            self.imgh / self.canvas.winfo_height(),
+        )
+        data = [
+            {"points": [(int(x * scale_w), int(y * scale_h)) for x, y in box]}
+            for box in self.rg_data
+        ]
         with open("bounding_boxes.json", "w") as f:
             json.dump(data, f, indent=4)
-        self.messagebox.showinfo("Success", "Bounding boxes saved to bounding_boxes.json")
+        self.messagebox.showinfo(
+            "Success", "Bounding boxes saved to bounding_boxes.json"
+        )
 
 
 class ParkingManagement(BaseSolution):
@@ -178,13 +198,18 @@ class ParkingManagement(BaseSolution):
 
         self.json_file = self.CFG["json_file"]  # Load JSON data
         if self.json_file is None:
-            LOGGER.warning("❌ json_file argument missing. Parking region details required.")
+            LOGGER.warning(
+                "❌ json_file argument missing. Parking region details required."
+            )
             raise ValueError("❌ Json file path can not be empty")
 
         with open(self.json_file) as f:
             self.json = json.load(f)
 
-        self.pr_info = {"Occupancy": 0, "Available": 0}  # dictionary for parking information
+        self.pr_info = {
+            "Occupancy": 0,
+            "Available": 0,
+        }  # dictionary for parking information
 
         self.arc = (0, 0, 255)  # available region color
         self.occ = (0, 255, 0)  # occupied region color
@@ -220,16 +245,30 @@ class ParkingManagement(BaseSolution):
                 if dist >= 0:
                     # cv2.circle(im0, (xc, yc), radius=self.line_width * 4, color=self.dc, thickness=-1)
                     annotator.display_objects_labels(
-                        im0, self.model.names[int(cls)], (104, 31, 17), (255, 255, 255), xc, yc, 10
+                        im0,
+                        self.model.names[int(cls)],
+                        (104, 31, 17),
+                        (255, 255, 255),
+                        xc,
+                        yc,
+                        10,
                     )
                     rg_occupied = True
                     break
             fs, es = (fs + 1, es - 1) if rg_occupied else (fs, es)
             # Plotting regions
-            cv2.polylines(im0, [pts_array], isClosed=True, color=self.occ if rg_occupied else self.arc, thickness=2)
+            cv2.polylines(
+                im0,
+                [pts_array],
+                isClosed=True,
+                color=self.occ if rg_occupied else self.arc,
+                thickness=2,
+            )
 
         self.pr_info["Occupancy"], self.pr_info["Available"] = fs, es
 
-        annotator.display_analytics(im0, self.pr_info, (104, 31, 17), (255, 255, 255), 10)
+        annotator.display_analytics(
+            im0, self.pr_info, (104, 31, 17), (255, 255, 255), 10
+        )
         self.display_output(im0)  # display output with base class function
         return im0  # return output image for more usage

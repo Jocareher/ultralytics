@@ -58,7 +58,9 @@ def main(onnx_model, input_image):
     scale = length / 640
 
     # Preprocess the image and prepare blob for model
-    blob = cv2.dnn.blobFromImage(image, scalefactor=1 / 255, size=(640, 640), swapRB=True)
+    blob = cv2.dnn.blobFromImage(
+        image, scalefactor=1 / 255, size=(640, 640), swapRB=True
+    )
     model.setInput(blob)
 
     # Perform inference
@@ -75,7 +77,9 @@ def main(onnx_model, input_image):
     # Iterate through output to collect bounding boxes, confidence scores, and class IDs
     for i in range(rows):
         classes_scores = outputs[0][i][4:]
-        (minScore, maxScore, minClassLoc, (x, maxClassIndex)) = cv2.minMaxLoc(classes_scores)
+        (minScore, maxScore, minClassLoc, (x, maxClassIndex)) = cv2.minMaxLoc(
+            classes_scores
+        )
         if maxScore >= 0.25:
             box = [
                 outputs[0][i][0] - (0.5 * outputs[0][i][2]),
@@ -124,7 +128,11 @@ def main(onnx_model, input_image):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default="yolov8n.onnx", help="Input your ONNX model.")
-    parser.add_argument("--img", default=str(ASSETS / "bus.jpg"), help="Path to input image.")
+    parser.add_argument(
+        "--model", default="yolov8n.onnx", help="Input your ONNX model."
+    )
+    parser.add_argument(
+        "--img", default=str(ASSETS / "bus.jpg"), help="Path to input image."
+    )
     args = parser.parse_args()
     main(args.model, args.img)

@@ -18,7 +18,13 @@ class LetterBox:
     """Resizes and reshapes images while maintaining aspect ratio by adding padding, suitable for YOLO models."""
 
     def __init__(
-        self, new_shape=(img_width, img_height), auto=False, scaleFill=False, scaleup=True, center=True, stride=32
+        self,
+        new_shape=(img_width, img_height),
+        auto=False,
+        scaleFill=False,
+        scaleup=True,
+        center=True,
+        stride=32,
     ):
         """Initializes LetterBox with parameters for reshaping and transforming image while maintaining aspect ratio."""
         self.new_shape = new_shape
@@ -52,7 +58,10 @@ class LetterBox:
         elif self.scaleFill:  # stretch
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
-            ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
+            ratio = (
+                new_shape[1] / shape[1],
+                new_shape[0] / shape[0],
+            )  # width, height ratios
 
         if self.center:
             dw /= 2  # divide padding into 2 sides
@@ -135,7 +144,9 @@ class Yolov8TFLite:
         label = f"{self.classes[class_id]}: {score:.2f}"
 
         # Calculate the dimensions of the label text
-        (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+        (label_width, label_height), _ = cv2.getTextSize(
+            label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+        )
 
         # Calculate the position of the label text
         label_x = x1
@@ -151,7 +162,16 @@ class Yolov8TFLite:
         )
 
         # Draw the label text on the image
-        cv2.putText(img, label, (int(label_x), int(label_y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+        cv2.putText(
+            img,
+            label,
+            (int(label_x), int(label_y)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 0, 0),
+            1,
+            cv2.LINE_AA,
+        )
 
     def preprocess(self):
         """
@@ -288,11 +308,20 @@ if __name__ == "__main__":
     # Create an argument parser to handle command-line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model", type=str, default="yolov8n_full_integer_quant.tflite", help="Input your TFLite model."
+        "--model",
+        type=str,
+        default="yolov8n_full_integer_quant.tflite",
+        help="Input your TFLite model.",
     )
-    parser.add_argument("--img", type=str, default=str(ASSETS / "bus.jpg"), help="Path to input image.")
-    parser.add_argument("--conf-thres", type=float, default=0.5, help="Confidence threshold")
-    parser.add_argument("--iou-thres", type=float, default=0.5, help="NMS IoU threshold")
+    parser.add_argument(
+        "--img", type=str, default=str(ASSETS / "bus.jpg"), help="Path to input image."
+    )
+    parser.add_argument(
+        "--conf-thres", type=float, default=0.5, help="Confidence threshold"
+    )
+    parser.add_argument(
+        "--iou-thres", type=float, default=0.5, help="NMS IoU threshold"
+    )
     args = parser.parse_args()
 
     # Create an instance of the Yolov8TFLite class with the specified arguments

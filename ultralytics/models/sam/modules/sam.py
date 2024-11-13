@@ -87,7 +87,9 @@ class SAMModel(nn.Module):
         self.image_encoder = image_encoder
         self.prompt_encoder = prompt_encoder
         self.mask_decoder = mask_decoder
-        self.register_buffer("pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False)
+        self.register_buffer(
+            "pixel_mean", torch.Tensor(pixel_mean).view(-1, 1, 1), False
+        )
         self.register_buffer("pixel_std", torch.Tensor(pixel_std).view(-1, 1, 1), False)
 
     def set_imgsz(self, imgsz):
@@ -100,7 +102,9 @@ class SAMModel(nn.Module):
         if hasattr(self.image_encoder, "set_imgsz"):
             self.image_encoder.set_imgsz(imgsz)
         self.prompt_encoder.input_image_size = imgsz
-        self.prompt_encoder.image_embedding_size = [x // 16 for x in imgsz]  # 16 is fixed as patch size of ViT model
+        self.prompt_encoder.image_embedding_size = [
+            x // 16 for x in imgsz
+        ]  # 16 is fixed as patch size of ViT model
         self.image_encoder.img_size = imgsz[0]
 
 
@@ -267,12 +271,16 @@ class SAM2Model(torch.nn.Module):
         # Part 3: memory encoder for the previous frame's outputs
         self.memory_encoder = memory_encoder
         self.mem_dim = self.hidden_dim
-        if hasattr(self.memory_encoder, "out_proj") and hasattr(self.memory_encoder.out_proj, "weight"):
+        if hasattr(self.memory_encoder, "out_proj") and hasattr(
+            self.memory_encoder.out_proj, "weight"
+        ):
             # if there is compression of memories along channel dim
             self.mem_dim = self.memory_encoder.out_proj.weight.shape[0]
         self.num_maskmem = num_maskmem  # Number of memories accessible
         # Temporal encoding of the memories
-        self.maskmem_tpos_enc = torch.nn.Parameter(torch.zeros(num_maskmem, 1, 1, self.mem_dim))
+        self.maskmem_tpos_enc = torch.nn.Parameter(
+            torch.zeros(num_maskmem, 1, 1, self.mem_dim)
+        )
         trunc_normal_(self.maskmem_tpos_enc, std=0.02)
         # a single token to indicate no memory embedding from previous frames
         self.no_mem_embed = torch.nn.Parameter(torch.zeros(1, 1, self.hidden_dim))
@@ -324,7 +332,9 @@ class SAM2Model(torch.nn.Module):
         # Model compilation
         if compile_image_encoder:
             # Compile the forward function (not the full module) to allow loading checkpoints.
-            print("Image encoder compilation is enabled. First forward pass will be slow.")
+            print(
+                "Image encoder compilation is enabled. First forward pass will be slow."
+            )
             self.image_encoder.forward = torch.compile(
                 self.image_encoder.forward,
                 mode="max-autotune",
@@ -382,7 +392,9 @@ class SAM2Model(torch.nn.Module):
             # a linear projection on SAM output tokens to turn them into object pointers
             self.obj_ptr_proj = torch.nn.Linear(self.hidden_dim, self.hidden_dim)
             if self.use_mlp_for_obj_ptr_proj:
-                self.obj_ptr_proj = MLP(self.hidden_dim, self.hidden_dim, self.hidden_dim, 3)
+                self.obj_ptr_proj = MLP(
+                    self.hidden_dim, self.hidden_dim, self.hidden_dim, 3
+                )
         else:
             self.obj_ptr_proj = torch.nn.Identity()
         if self.proj_tpos_enc_in_obj_ptrs:
@@ -575,7 +587,9 @@ class SAM2Model(torch.nn.Module):
         ious = mask_inputs.new_ones(mask_inputs.size(0), 1).float()
         if not self.use_obj_ptrs_in_encoder:
             # all zeros as a dummy object pointer (of shape [B, C])
-            obj_ptr = torch.zeros(mask_inputs.size(0), self.hidden_dim, device=mask_inputs.device)
+            obj_ptr = torch.zeros(
+                mask_inputs.size(0), self.hidden_dim, device=mask_inputs.device
+            )
         else:
             # produce an object pointer using the SAM decoder from the mask input
             _, _, _, _, _, obj_ptr, _ = self._forward_sam_heads(
@@ -611,8 +625,12 @@ class SAM2Model(torch.nn.Module):
         if self.use_high_res_features_in_sam:
             # precompute projected level 0 and level 1 features in SAM decoder
             # to avoid running it again on every SAM click
-            backbone_out["backbone_fpn"][0] = self.sam_mask_decoder.conv_s0(backbone_out["backbone_fpn"][0])
-            backbone_out["backbone_fpn"][1] = self.sam_mask_decoder.conv_s1(backbone_out["backbone_fpn"][1])
+            backbone_out["backbone_fpn"][0] = self.sam_mask_decoder.conv_s0(
+                backbone_out["backbone_fpn"][0]
+            )
+            backbone_out["backbone_fpn"][1] = self.sam_mask_decoder.conv_s1(
+                backbone_out["backbone_fpn"][1]
+            )
         return backbone_out
 
     def _prepare_backbone_features(self, backbone_out):
@@ -675,7 +693,9 @@ class SAM2Model(torch.nn.Module):
                 t_rel = self.num_maskmem - t_pos  # how many frames before current frame
                 if t_rel == 1:
                     # for t_rel == 1, we take the last frame (regardless of r)
-                    prev_frame_idx = frame_idx + t_rel if track_in_reverse else frame_idx - t_rel
+                    prev_frame_idx = (
+                        frame_idx + t_rel if track_in_reverse else frame_idx - t_rel
+                    )
                 elif not track_in_reverse:
                     # first find the nearest frame among every r-th frames before this frame
                     # for r=1, this would be (frame_idx - 2)
@@ -706,7 +726,9 @@ class SAM2Model(torch.nn.Module):
                 maskmem_enc = prev["maskmem_pos_enc"][-1].cuda()
                 maskmem_enc = maskmem_enc.flatten(2).permute(2, 0, 1)
                 # Temporal positional encoding
-                maskmem_enc = maskmem_enc + self.maskmem_tpos_enc[self.num_maskmem - t_pos - 1]
+                maskmem_enc = (
+                    maskmem_enc + self.maskmem_tpos_enc[self.num_maskmem - t_pos - 1]
+                )
                 to_cat_memory_pos_embed.append(maskmem_enc)
 
             # Construct the list of past object pointers
@@ -739,7 +761,9 @@ class SAM2Model(torch.nn.Module):
                     t = frame_idx + t_diff if track_in_reverse else frame_idx - t_diff
                     if t < 0 or (num_frames is not None and t >= num_frames):
                         break
-                    out = output_dict["non_cond_frame_outputs"].get(t, unselected_cond_outputs.get(t, None))
+                    out = output_dict["non_cond_frame_outputs"].get(
+                        t, unselected_cond_outputs.get(t, None)
+                    )
                     if out is not None:
                         pos_and_ptrs.append((t_diff, out["obj_ptr"]))
                 # If we have at least one object pointer, add them to the across attention
@@ -760,7 +784,9 @@ class SAM2Model(torch.nn.Module):
                         obj_pos = obj_ptrs.new_zeros(len(pos_list), B, self.mem_dim)
                     if self.mem_dim < C:
                         # split a pointer into (C // self.mem_dim) tokens for self.mem_dim < C
-                        obj_ptrs = obj_ptrs.reshape(-1, B, C // self.mem_dim, self.mem_dim)
+                        obj_ptrs = obj_ptrs.reshape(
+                            -1, B, C // self.mem_dim, self.mem_dim
+                        )
                         obj_ptrs = obj_ptrs.permute(0, 2, 1, 3).flatten(0, 1)
                         obj_pos = obj_pos.repeat_interleave(C // self.mem_dim, dim=0)
                     to_cat_memory.append(obj_ptrs)
@@ -813,7 +839,9 @@ class SAM2Model(torch.nn.Module):
             # optionally, apply non-overlapping constraints to the masks (it's applied
             # in the batch dimension and should only be used during eval, where all
             # the objects come from the same video under batch size 1).
-            pred_masks_high_res = self._apply_non_overlapping_constraints(pred_masks_high_res)
+            pred_masks_high_res = self._apply_non_overlapping_constraints(
+                pred_masks_high_res
+            )
         # scale the raw mask logits with a temperature before applying sigmoid
         binarize = self.binarize_mask_from_pts_for_mem_enc and is_mask_from_pts
         if binarize and not self.training:
@@ -837,9 +865,11 @@ class SAM2Model(torch.nn.Module):
         # is predicted to be occluded (i.e. no object is appearing in the frame)
         if self.no_obj_embed_spatial is not None:
             is_obj_appearing = (object_score_logits > 0).float()
-            maskmem_features += (1 - is_obj_appearing[..., None, None]) * self.no_obj_embed_spatial[
-                ..., None, None
-            ].expand(*maskmem_features.shape)
+            maskmem_features += (
+                1 - is_obj_appearing[..., None, None]
+            ) * self.no_obj_embed_spatial[..., None, None].expand(
+                *maskmem_features.shape
+            )
 
         return maskmem_features, maskmem_pos_enc
 
@@ -871,7 +901,9 @@ class SAM2Model(torch.nn.Module):
             # (see it as a GT mask) without using a SAM prompt encoder + mask decoder.
             pix_feat = current_vision_feats[-1].permute(1, 2, 0)
             pix_feat = pix_feat.view(-1, self.hidden_dim, *feat_sizes[-1])
-            sam_outputs = self._use_mask_as_output(pix_feat, high_res_features, mask_inputs)
+            sam_outputs = self._use_mask_as_output(
+                pix_feat, high_res_features, mask_inputs
+            )
         else:
             # fused the visual feature with previous memory features in the memory bank
             pix_feat = self._prepare_memory_conditioned_features(
@@ -1032,4 +1064,6 @@ class SAM2Model(torch.nn.Module):
         """
         self.image_size = imgsz[0]
         self.sam_prompt_encoder.input_image_size = imgsz
-        self.sam_prompt_encoder.image_embedding_size = [x // 16 for x in imgsz]  # fixed ViT patch size of 16
+        self.sam_prompt_encoder.image_embedding_size = [
+            x // 16 for x in imgsz
+        ]  # fixed ViT patch size of 16

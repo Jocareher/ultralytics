@@ -49,10 +49,14 @@ class Conv2d_BN(torch.nn.Sequential):
         >>> print(output.shape)
     """
 
-    def __init__(self, a, b, ks=1, stride=1, pad=0, dilation=1, groups=1, bn_weight_init=1):
+    def __init__(
+        self, a, b, ks=1, stride=1, pad=0, dilation=1, groups=1, bn_weight_init=1
+    ):
         """Initializes a sequential container with 2D convolution followed by batch normalization."""
         super().__init__()
-        self.add_module("c", torch.nn.Conv2d(a, b, ks, stride, pad, dilation, groups, bias=False))
+        self.add_module(
+            "c", torch.nn.Conv2d(a, b, ks, stride, pad, dilation, groups, bias=False)
+        )
         bn = torch.nn.BatchNorm2d(b)
         torch.nn.init.constant_(bn.weight, bn_weight_init)
         torch.nn.init.constant_(bn.bias, 0)
@@ -139,7 +143,14 @@ class MBConv(nn.Module):
         self.conv1 = Conv2d_BN(in_chans, self.hidden_chans, ks=1)
         self.act1 = activation()
 
-        self.conv2 = Conv2d_BN(self.hidden_chans, self.hidden_chans, ks=3, stride=1, pad=1, groups=self.hidden_chans)
+        self.conv2 = Conv2d_BN(
+            self.hidden_chans,
+            self.hidden_chans,
+            ks=3,
+            stride=1,
+            pad=1,
+            groups=self.hidden_chans,
+        )
         self.act2 = activation()
 
         self.conv3 = Conv2d_BN(self.hidden_chans, out_chans, ks=1, bn_weight_init=0.0)
@@ -302,7 +313,9 @@ class ConvLayer(nn.Module):
         self.downsample = (
             None
             if downsample is None
-            else downsample(input_resolution, dim=dim, out_dim=out_dim, activation=activation)
+            else downsample(
+                input_resolution, dim=dim, out_dim=out_dim, activation=activation
+            )
         )
 
     def forward(self, x):
@@ -339,7 +352,14 @@ class Mlp(nn.Module):
         torch.Size([32, 100, 256])
     """
 
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.0):
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+    ):
         """Initializes a multi-layer perceptron with configurable input, hidden, and output dimensions."""
         super().__init__()
         out_features = out_features or in_features
@@ -429,7 +449,9 @@ class Attention(torch.nn.Module):
         """
         super().__init__()
 
-        assert isinstance(resolution, tuple) and len(resolution) == 2, "'resolution' argument not tuple of length 2"
+        assert (
+            isinstance(resolution, tuple) and len(resolution) == 2
+        ), "'resolution' argument not tuple of length 2"
         self.num_heads = num_heads
         self.scale = key_dim**-0.5
         self.key_dim = key_dim
@@ -453,8 +475,12 @@ class Attention(torch.nn.Module):
                 if offset not in attention_offsets:
                     attention_offsets[offset] = len(attention_offsets)
                 idxs.append(attention_offsets[offset])
-        self.attention_biases = torch.nn.Parameter(torch.zeros(num_heads, len(attention_offsets)))
-        self.register_buffer("attention_bias_idxs", torch.LongTensor(idxs).view(N, N), persistent=False)
+        self.attention_biases = torch.nn.Parameter(
+            torch.zeros(num_heads, len(attention_offsets))
+        )
+        self.register_buffer(
+            "attention_bias_idxs", torch.LongTensor(idxs).view(N, N), persistent=False
+        )
 
     @torch.no_grad()
     def train(self, mode=True):
@@ -474,7 +500,9 @@ class Attention(torch.nn.Module):
 
         qkv = self.qkv(x)
         # (B, N, num_heads, d)
-        q, k, v = qkv.view(B, N, self.num_heads, -1).split([self.key_dim, self.key_dim, self.d], dim=3)
+        q, k, v = qkv.view(B, N, self.num_heads, -1).split(
+            [self.key_dim, self.key_dim, self.d], dim=3
+        )
         # (B, num_heads, N, d)
         q = q.permute(0, 2, 1, 3)
         k = k.permute(0, 2, 1, 3)
@@ -482,7 +510,9 @@ class Attention(torch.nn.Module):
         self.ab = self.ab.to(self.attention_biases.device)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale + (
-            self.attention_biases[:, self.attention_bias_idxs] if self.training else self.ab
+            self.attention_biases[:, self.attention_bias_idxs]
+            if self.training
+            else self.ab
         )
         attn = attn.softmax(dim=-1)
         x = (attn @ v).transpose(1, 2).reshape(B, N, self.dh)
@@ -575,14 +605,23 @@ class TinyViTBlock(nn.Module):
         head_dim = dim // num_heads
 
         window_resolution = (window_size, window_size)
-        self.attn = Attention(dim, head_dim, num_heads, attn_ratio=1, resolution=window_resolution)
+        self.attn = Attention(
+            dim, head_dim, num_heads, attn_ratio=1, resolution=window_resolution
+        )
 
         mlp_hidden_dim = int(dim * mlp_ratio)
         mlp_activation = activation
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=mlp_activation, drop=drop)
+        self.mlp = Mlp(
+            in_features=dim,
+            hidden_features=mlp_hidden_dim,
+            act_layer=mlp_activation,
+            drop=drop,
+        )
 
         pad = local_conv_size // 2
-        self.local_conv = Conv2d_BN(dim, dim, ks=local_conv_size, stride=1, pad=pad, groups=dim)
+        self.local_conv = Conv2d_BN(
+            dim, dim, ks=local_conv_size, stride=1, pad=pad, groups=dim
+        )
 
     def forward(self, x):
         """Applies self-attention, local convolution, and MLP operations to the input tensor."""
@@ -613,7 +652,11 @@ class TinyViTBlock(nn.Module):
             x = self.attn(x)
 
             # Window reverse
-            x = x.view(b, nH, nW, self.window_size, self.window_size, c).transpose(2, 3).reshape(b, pH, pW, c)
+            x = (
+                x.view(b, nH, nW, self.window_size, self.window_size, c)
+                .transpose(2, 3)
+                .reshape(b, pH, pW, c)
+            )
             if padding:
                 x = x[:, :h, :w].contiguous()
 
@@ -736,7 +779,9 @@ class BasicLayer(nn.Module):
                     window_size=window_size,
                     mlp_ratio=mlp_ratio,
                     drop=drop,
-                    drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
+                    drop_path=drop_path[i]
+                    if isinstance(drop_path, list)
+                    else drop_path,
                     local_conv_size=local_conv_size,
                     activation=activation,
                 )
@@ -748,7 +793,9 @@ class BasicLayer(nn.Module):
         self.downsample = (
             None
             if downsample is None
-            else downsample(input_resolution, dim=dim, out_dim=out_dim, activation=activation)
+            else downsample(
+                input_resolution, dim=dim, out_dim=out_dim, activation=activation
+            )
         )
 
     def forward(self, x):
@@ -855,14 +902,19 @@ class TinyViT(nn.Module):
         activation = nn.GELU
 
         self.patch_embed = PatchEmbed(
-            in_chans=in_chans, embed_dim=embed_dims[0], resolution=img_size, activation=activation
+            in_chans=in_chans,
+            embed_dim=embed_dims[0],
+            resolution=img_size,
+            activation=activation,
         )
 
         patches_resolution = self.patch_embed.patches_resolution
         self.patches_resolution = patches_resolution
 
         # Stochastic depth
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]  # stochastic depth decay rule
+        dpr = [
+            x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))
+        ]  # stochastic depth decay rule
 
         # Build layers
         self.layers = nn.ModuleList()
@@ -870,8 +922,10 @@ class TinyViT(nn.Module):
             kwargs = dict(
                 dim=embed_dims[i_layer],
                 input_resolution=(
-                    patches_resolution[0] // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
-                    patches_resolution[1] // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
+                    patches_resolution[0]
+                    // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
+                    patches_resolution[1]
+                    // (2 ** (i_layer - 1 if i_layer == 3 else i_layer)),
                 ),
                 #   input_resolution=(patches_resolution[0] // (2 ** i_layer),
                 #                     patches_resolution[1] // (2 ** i_layer)),
@@ -897,7 +951,11 @@ class TinyViT(nn.Module):
 
         # Classifier head
         self.norm_head = nn.LayerNorm(embed_dims[-1])
-        self.head = nn.Linear(embed_dims[-1], num_classes) if num_classes > 0 else torch.nn.Identity()
+        self.head = (
+            nn.Linear(embed_dims[-1], num_classes)
+            if num_classes > 0
+            else torch.nn.Identity()
+        )
 
         # Init weights
         self.apply(self._init_weights)
@@ -982,7 +1040,12 @@ class TinyViT(nn.Module):
             layer = self.layers[i]
             x = layer(x)
         batch, _, channel = x.shape
-        x = x.view(batch, self.patches_resolution[0] // 4, self.patches_resolution[1] // 4, channel)
+        x = x.view(
+            batch,
+            self.patches_resolution[0] // 4,
+            self.patches_resolution[1] // 4,
+            channel,
+        )
         x = x.permute(0, 3, 1, 2)
         return self.neck(x)
 

@@ -82,7 +82,9 @@ class BaseSolution:
             >>> frame = cv2.imread("path/to/image.jpg")
             >>> solution.extract_tracks(frame)
         """
-        self.tracks = self.model.track(source=im0, persist=True, classes=self.CFG["classes"])
+        self.tracks = self.model.track(
+            source=im0, persist=True, classes=self.CFG["classes"]
+        )
 
         # Extract tracks for OBB or object detection
         self.track_data = self.tracks[0].obb or self.tracks[0].boxes
@@ -121,7 +123,9 @@ class BaseSolution:
         if self.region is None:
             self.region = [(20, 400), (1080, 404), (1080, 360), (20, 360)]
         self.r_s = (
-            self.Polygon(self.region) if len(self.region) >= 3 else self.LineString(self.region)
+            self.Polygon(self.region)
+            if len(self.region) >= 3
+            else self.LineString(self.region)
         )  # region or line
 
     def display_output(self, im0):

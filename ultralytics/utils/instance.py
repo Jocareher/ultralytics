@@ -48,7 +48,9 @@ class Bboxes:
 
     def __init__(self, bboxes, format="xyxy") -> None:
         """Initializes the Bboxes class with bounding box data in a specified format."""
-        assert format in _formats, f"Invalid bounding box format: {format}, format must be one of {_formats}"
+        assert (
+            format in _formats
+        ), f"Invalid bounding box format: {format}, format must be one of {_formats}"
         bboxes = bboxes[None, :] if bboxes.ndim == 1 else bboxes
         assert bboxes.ndim == 2
         assert bboxes.shape[1] == 4
@@ -58,7 +60,9 @@ class Bboxes:
 
     def convert(self, format):
         """Converts bounding box format from one type to another."""
-        assert format in _formats, f"Invalid bounding box format: {format}, format must be one of {_formats}"
+        assert (
+            format in _formats
+        ), f"Invalid bounding box format: {format}, format must be one of {_formats}"
         if self.format == format:
             return
         elif self.format == "xyxy":
@@ -73,7 +77,8 @@ class Bboxes:
     def areas(self):
         """Return box areas."""
         return (
-            (self.bboxes[:, 2] - self.bboxes[:, 0]) * (self.bboxes[:, 3] - self.bboxes[:, 1])  # format xyxy
+            (self.bboxes[:, 2] - self.bboxes[:, 0])
+            * (self.bboxes[:, 3] - self.bboxes[:, 1])  # format xyxy
             if self.format == "xyxy"
             else self.bboxes[:, 3] * self.bboxes[:, 2]  # format xywh or ltwh
         )
@@ -178,7 +183,9 @@ class Bboxes:
         if isinstance(index, int):
             return Bboxes(self.bboxes[index].view(1, -1))
         b = self.bboxes[index]
-        assert b.ndim == 2, f"Indexing on Bboxes with {index} failed to return a matrix!"
+        assert (
+            b.ndim == 2
+        ), f"Indexing on Bboxes with {index} failed to return a matrix!"
         return Bboxes(b)
 
 
@@ -214,7 +221,9 @@ class Instances:
         This class does not perform input validation, and it assumes the inputs are well-formed.
     """
 
-    def __init__(self, bboxes, segments=None, keypoints=None, bbox_format="xywh", normalized=True) -> None:
+    def __init__(
+        self, bboxes, segments=None, keypoints=None, bbox_format="xywh", normalized=True
+    ) -> None:
         """
         Initialize the object with bounding boxes, segments, and keypoints.
 
@@ -407,7 +416,11 @@ class Instances:
 
         cat_boxes = np.concatenate([ins.bboxes for ins in instances_list], axis=axis)
         cat_segments = np.concatenate([b.segments for b in instances_list], axis=axis)
-        cat_keypoints = np.concatenate([b.keypoints for b in instances_list], axis=axis) if use_keypoint else None
+        cat_keypoints = (
+            np.concatenate([b.keypoints for b in instances_list], axis=axis)
+            if use_keypoint
+            else None
+        )
         return cls(cat_boxes, cat_segments, cat_keypoints, bbox_format, normalized)
 
     @property

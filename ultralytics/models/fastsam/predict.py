@@ -34,14 +34,18 @@ class FastSAMPredictor(SegmentationPredictor):
         results = super().postprocess(preds, img, orig_imgs)
         for result in results:
             full_box = torch.tensor(
-                [0, 0, result.orig_shape[1], result.orig_shape[0]], device=preds[0].device, dtype=torch.float32
+                [0, 0, result.orig_shape[1], result.orig_shape[0]],
+                device=preds[0].device,
+                dtype=torch.float32,
             )
             boxes = adjust_bboxes_to_image_border(result.boxes.xyxy, result.orig_shape)
             idx = torch.nonzero(box_iou(full_box[None], boxes) > 0.9).flatten()
             if idx.numel() != 0:
                 result.boxes.xyxy[idx] = full_box
 
-        return self.prompt(results, bboxes=bboxes, points=points, labels=labels, texts=texts)
+        return self.prompt(
+            results, bboxes=bboxes, points=points, labels=labels, texts=texts
+        )
 
     def prompt(self, results, bboxes=None, points=None, labels=None, texts=None):
         """
@@ -72,8 +76,12 @@ class FastSAMPredictor(SegmentationPredictor):
             if bboxes is not None:
                 bboxes = torch.as_tensor(bboxes, dtype=torch.int32, device=self.device)
                 bboxes = bboxes[None] if bboxes.ndim == 1 else bboxes
-                bbox_areas = (bboxes[:, 3] - bboxes[:, 1]) * (bboxes[:, 2] - bboxes[:, 0])
-                mask_areas = torch.stack([masks[:, b[1] : b[3], b[0] : b[2]].sum(dim=(1, 2)) for b in bboxes])
+                bbox_areas = (bboxes[:, 3] - bboxes[:, 1]) * (
+                    bboxes[:, 2] - bboxes[:, 0]
+                )
+                mask_areas = torch.stack(
+                    [masks[:, b[1] : b[3], b[0] : b[2]].sum(dim=(1, 2)) for b in bboxes]
+                )
                 full_mask_areas = torch.sum(masks, dim=(1, 2))
 
                 union = bbox_areas[:, None] + full_mask_areas - mask_areas
@@ -93,7 +101,9 @@ class FastSAMPredictor(SegmentationPredictor):
                     else torch.zeros(len(result), dtype=torch.bool, device=self.device)
                 )
                 for point, label in zip(points, labels):
-                    point_idx[torch.nonzero(masks[:, point[1], point[0]], as_tuple=True)[0]] = bool(label)
+                    point_idx[
+                        torch.nonzero(masks[:, point[1], point[0]], as_tuple=True)[0]
+                    ] = bool(label)
                 idx |= point_idx
             if texts is not None:
                 if isinstance(texts, str):
@@ -104,11 +114,16 @@ class FastSAMPredictor(SegmentationPredictor):
                     if masks[i].sum() <= 100:
                         filter_idx.append(i)
                         continue
-                    crop_ims.append(Image.fromarray(result.orig_img[y1:y2, x1:x2, ::-1]))
+                    crop_ims.append(
+                        Image.fromarray(result.orig_img[y1:y2, x1:x2, ::-1])
+                    )
                 similarity = self._clip_inference(crop_ims, texts)
                 text_idx = torch.argmax(similarity, dim=-1)  # (M, )
                 if len(filter_idx):
-                    text_idx += (torch.tensor(filter_idx, device=self.device)[None] <= int(text_idx)).sum(0)
+                    text_idx += (
+                        torch.tensor(filter_idx, device=self.device)[None]
+                        <= int(text_idx)
+                    ).sum(0)
                 idx[text_idx] = True
 
             prompt_results.append(result[idx])
@@ -132,8 +147,12 @@ class FastSAMPredictor(SegmentationPredictor):
             checks.check_requirements("git+https://github.com/ultralytics/CLIP.git")
             import clip
         if (not hasattr(self, "clip_model")) or (not hasattr(self, "clip_preprocess")):
-            self.clip_model, self.clip_preprocess = clip.load("ViT-B/32", device=self.device)
-        images = torch.stack([self.clip_preprocess(image).to(self.device) for image in images])
+            self.clip_model, self.clip_preprocess = clip.load(
+                "ViT-B/32", device=self.device
+            )
+        images = torch.stack(
+            [self.clip_preprocess(image).to(self.device) for image in images]
+        )
         tokenized_text = clip.tokenize(texts).to(self.device)
         image_features = self.clip_model.encode_image(images)
         text_features = self.clip_model.encode_text(tokenized_text)

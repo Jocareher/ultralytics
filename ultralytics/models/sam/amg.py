@@ -23,13 +23,17 @@ def is_box_near_crop_edge(
 
 def batch_iterator(batch_size: int, *args) -> Generator[List[Any], None, None]:
     """Yields batches of data from input arguments with specified batch size for efficient processing."""
-    assert args and all(len(a) == len(args[0]) for a in args), "Batched iteration must have same-size inputs."
+    assert args and all(
+        len(a) == len(args[0]) for a in args
+    ), "Batched iteration must have same-size inputs."
     n_batches = len(args[0]) // batch_size + int(len(args[0]) % batch_size != 0)
     for b in range(n_batches):
         yield [arg[b * batch_size : (b + 1) * batch_size] for arg in args]
 
 
-def calculate_stability_score(masks: torch.Tensor, mask_threshold: float, threshold_offset: float) -> torch.Tensor:
+def calculate_stability_score(
+    masks: torch.Tensor, mask_threshold: float, threshold_offset: float
+) -> torch.Tensor:
     """
     Computes the stability score for a batch of masks.
 
@@ -54,8 +58,16 @@ def calculate_stability_score(masks: torch.Tensor, mask_threshold: float, thresh
         >>> threshold_offset = 0.1
         >>> stability_scores = calculate_stability_score(masks, mask_threshold, threshold_offset)
     """
-    intersections = (masks > (mask_threshold + threshold_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)
-    unions = (masks > (mask_threshold - threshold_offset)).sum(-1, dtype=torch.int16).sum(-1, dtype=torch.int32)
+    intersections = (
+        (masks > (mask_threshold + threshold_offset))
+        .sum(-1, dtype=torch.int16)
+        .sum(-1, dtype=torch.int32)
+    )
+    unions = (
+        (masks > (mask_threshold - threshold_offset))
+        .sum(-1, dtype=torch.int16)
+        .sum(-1, dtype=torch.int32)
+    )
     return intersections / unions
 
 
@@ -68,9 +80,14 @@ def build_point_grid(n_per_side: int) -> np.ndarray:
     return np.stack([points_x, points_y], axis=-1).reshape(-1, 2)
 
 
-def build_all_layer_point_grids(n_per_side: int, n_layers: int, scale_per_layer: int) -> List[np.ndarray]:
+def build_all_layer_point_grids(
+    n_per_side: int, n_layers: int, scale_per_layer: int
+) -> List[np.ndarray]:
     """Generates point grids for multiple crop layers with varying scales and densities."""
-    return [build_point_grid(int(n_per_side / (scale_per_layer**i))) for i in range(n_layers + 1)]
+    return [
+        build_point_grid(int(n_per_side / (scale_per_layer**i)))
+        for i in range(n_layers + 1)
+    ]
 
 
 def generate_crop_boxes(
@@ -128,7 +145,9 @@ def uncrop_points(points: torch.Tensor, crop_box: List[int]) -> torch.Tensor:
     return points + offset
 
 
-def uncrop_masks(masks: torch.Tensor, crop_box: List[int], orig_h: int, orig_w: int) -> torch.Tensor:
+def uncrop_masks(
+    masks: torch.Tensor, crop_box: List[int], orig_h: int, orig_w: int
+) -> torch.Tensor:
     """Uncrop masks by padding them to the original image size, handling coordinate transformations."""
     x0, y0, x1, y1 = crop_box
     if x0 == 0 and y0 == 0 and x1 == orig_w and y1 == orig_h:
@@ -139,7 +158,9 @@ def uncrop_masks(masks: torch.Tensor, crop_box: List[int], orig_h: int, orig_w: 
     return torch.nn.functional.pad(masks, pad, value=0)
 
 
-def remove_small_regions(mask: np.ndarray, area_thresh: float, mode: str) -> Tuple[np.ndarray, bool]:
+def remove_small_regions(
+    mask: np.ndarray, area_thresh: float, mode: str
+) -> Tuple[np.ndarray, bool]:
     """Removes small disconnected regions or holes in a mask based on area threshold and mode."""
     import cv2  # type: ignore
 
@@ -154,7 +175,9 @@ def remove_small_regions(mask: np.ndarray, area_thresh: float, mode: str) -> Tup
     fill_labels = [0] + small_regions
     if not correct_holes:
         # If every region is below threshold, keep largest
-        fill_labels = [i for i in range(n_labels) if i not in fill_labels] or [int(np.argmax(sizes)) + 1]
+        fill_labels = [i for i in range(n_labels) if i not in fill_labels] or [
+            int(np.argmax(sizes)) + 1
+        ]
     mask = np.isin(regions, fill_labels)
     return mask, True
 
