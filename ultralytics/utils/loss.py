@@ -593,8 +593,8 @@ class v8PoseLoss(v8DetectionLoss):
         """Initializes v8PoseLoss with model, sets keypoint variables and declares a keypoint loss instance."""
         super().__init__(model)
         self.kpt_shape = model.model[-1].kpt_shape
-        # self.bce_pose = nn.BCEWithLogitsLoss()
-        self.bce_pose = nn.BCELoss()
+        self.bce_pose = nn.BCEWithLogitsLoss()
+        #self.bce_pose = nn.BCELoss()
         is_pose = self.kpt_shape == [17, 3]
         nkpt = self.kpt_shape[0]  # number of keypoints
         sigmas = (
@@ -703,7 +703,7 @@ class v8PoseLoss(v8DetectionLoss):
         # Decode visibility as binary (0 = occluded, 1 = visible)
         if y.shape[-1] == 3:  # Apply only if there is visibility flag
             y[..., 2] = (
-                y[..., 2].sigmoid() > 0.5
+                y[..., 2] > 0.0
             ).float()  # Threshold for classifying visibility
 
         return y
