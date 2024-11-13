@@ -145,13 +145,31 @@ class KeypointLoss(nn.Module):
         super().__init__()
         self.sigmas = sigmas
 
-    def forward(self, pred_kpts, gt_kpts, kpt_mask, area):
-        """Calculates keypoint loss factor and Euclidean distance loss for predicted and actual keypoints."""
+    def forward(self, pred_kpts, gt_kpts, kpt_mask, area, visibility_flags):
+        """
+        Calculates keypoint loss factor and Euclidean distance loss for predicted and actual keypoints.
+
+        Args:
+            pred_kpts (torch.Tensor): Predicted keypoints.
+            gt_kpts (torch.Tensor): Ground truth keypoints.
+            kpt_mask (torch.Tensor): Mask indicating valid keypoints.
+            area (torch.Tensor): Area of the bounding box.
+            visibility_flags (torch.Tensor): Visibility flags (0 for invisible, 1 for occluded, 2 for visible).
+
+        Returns:
+            torch.Tensor: The computed keypoint loss.
+        """
         d = (pred_kpts[..., 0] - gt_kpts[..., 0]).pow(2) + (pred_kpts[..., 1] - gt_kpts[..., 1]).pow(2)
         kpt_loss_factor = kpt_mask.shape[1] / (torch.sum(kpt_mask != 0, dim=1) + 1e-9)
-        # e = d / (2 * (area * self.sigmas) ** 2 + 1e-9)  # from formula
-        e = d / ((2 * self.sigmas).pow(2) * (area + 1e-9) * 2)  # from cocoeval
-        return (kpt_loss_factor.view(-1, 1) * ((1 - torch.exp(-e)) * kpt_mask)).mean()
+        e = d / ((2 * self.sigmas).pow(2) * (area + 1e-9) * 2)
+
+        # Adjust loss weight based on visibility
+        # Occluded keypoints (label 1) contribute less to the loss than visible keypoints (label 2)
+        visibility_weights = torch.where(visibility_flags == 2, 1.0, 0.5)
+
+        weighted_loss = (1 - torch.exp(-e)) * kpt_mask * visibility_weights
+        return (kpt_loss_factor.view(-1, 1) * weighted_loss).mean()
+
 
 
 class v8DetectionLoss:
@@ -451,7 +469,8 @@ class v8PoseLoss(v8DetectionLoss):
         """Initializes v8PoseLoss with model, sets keypoint variables and declares a keypoint loss instance."""
         super().__init__(model)
         self.kpt_shape = model.model[-1].kpt_shape
-        self.bce_pose = nn.BCEWithLogitsLoss()
+        #self.bce_pose = nn.BCEWithLogitsLoss()
+        self.bce_pose = nn.BCELoss()
         is_pose = self.kpt_shape == [17, 3]
         nkpt = self.kpt_shape[0]  # number of keypoints
         sigmas = torch.from_numpy(OKS_SIGMA).to(self.device) if is_pose else torch.ones(nkpt, device=self.device) / nkpt
@@ -536,72 +555,73 @@ class v8PoseLoss(v8DetectionLoss):
 
         return y
 
-    def calculate_keypoints_loss(
-        self, masks, target_gt_idx, keypoints, batch_idx, stride_tensor, target_bboxes, pred_kpts
-    ):
-        """
-        Calculate the keypoints loss for the model.
+def calculate_keypoints_loss(
+    self, masks, target_gt_idx, keypoints, batch_idx, stride_tensor, target_bboxes, pred_kpts
+):
+    """
+    Calculate the keypoints loss for the model.
 
-        This function calculates the keypoints loss and keypoints object loss for a given batch. The keypoints loss is
-        based on the difference between the predicted keypoints and ground truth keypoints. The keypoints object loss is
-        a binary classification loss that classifies whether a keypoint is present or not.
+    This function calculates the keypoints loss and keypoints object loss for a given batch. The keypoints loss is
+    based on the difference between the predicted keypoints and ground truth keypoints, considering visibility.
 
-        Args:
-            masks (torch.Tensor): Binary mask tensor indicating object presence, shape (BS, N_anchors).
-            target_gt_idx (torch.Tensor): Index tensor mapping anchors to ground truth objects, shape (BS, N_anchors).
-            keypoints (torch.Tensor): Ground truth keypoints, shape (N_kpts_in_batch, N_kpts_per_object, kpts_dim).
-            batch_idx (torch.Tensor): Batch index tensor for keypoints, shape (N_kpts_in_batch, 1).
-            stride_tensor (torch.Tensor): Stride tensor for anchors, shape (N_anchors, 1).
-            target_bboxes (torch.Tensor): Ground truth boxes in (x1, y1, x2, y2) format, shape (BS, N_anchors, 4).
-            pred_kpts (torch.Tensor): Predicted keypoints, shape (BS, N_anchors, N_kpts_per_object, kpts_dim).
+    Args:
+        masks (torch.Tensor): Binary mask tensor indicating object presence.
+        target_gt_idx (torch.Tensor): Index tensor mapping anchors to ground truth objects.
+        keypoints (torch.Tensor): Ground truth keypoints.
+        batch_idx (torch.Tensor): Batch index tensor for keypoints.
+        stride_tensor (torch.Tensor): Stride tensor for anchors.
+        target_bboxes (torch.Tensor): Ground truth boxes.
+        pred_kpts (torch.Tensor): Predicted keypoints.
 
-        Returns:
-            (tuple): Returns a tuple containing:
-                - kpts_loss (torch.Tensor): The keypoints loss.
-                - kpts_obj_loss (torch.Tensor): The keypoints object loss.
-        """
-        batch_idx = batch_idx.flatten()
-        batch_size = len(masks)
+    Returns:
+        (tuple): Returns a tuple containing:
+            - kpts_loss (torch.Tensor): The keypoints loss.
+            - kpts_obj_loss (torch.Tensor): The keypoints object loss.
+    """
+    batch_idx = batch_idx.flatten()
+    batch_size = len(masks)
 
-        # Find the maximum number of keypoints in a single image
-        max_kpts = torch.unique(batch_idx, return_counts=True)[1].max()
+    # Find the maximum number of keypoints in a single image
+    max_kpts = torch.unique(batch_idx, return_counts=True)[1].max()
 
-        # Create a tensor to hold batched keypoints
-        batched_keypoints = torch.zeros(
-            (batch_size, max_kpts, keypoints.shape[1], keypoints.shape[2]), device=keypoints.device
-        )
+    # Create a tensor to hold batched keypoints
+    batched_keypoints = torch.zeros(
+        (batch_size, max_kpts, keypoints.shape[1], keypoints.shape[2]), device=keypoints.device
+    )
 
-        # TODO: any idea how to vectorize this?
-        # Fill batched_keypoints with keypoints based on batch_idx
-        for i in range(batch_size):
-            keypoints_i = keypoints[batch_idx == i]
-            batched_keypoints[i, : keypoints_i.shape[0]] = keypoints_i
+    # Fill batched_keypoints with keypoints based on batch_idx
+    for i in range(batch_size):
+        keypoints_i = keypoints[batch_idx == i]
+        batched_keypoints[i, : keypoints_i.shape[0]] = keypoints_i
 
-        # Expand dimensions of target_gt_idx to match the shape of batched_keypoints
-        target_gt_idx_expanded = target_gt_idx.unsqueeze(-1).unsqueeze(-1)
+    # Expand dimensions of target_gt_idx to match the shape of batched_keypoints
+    target_gt_idx_expanded = target_gt_idx.unsqueeze(-1).unsqueeze(-1)
+    selected_keypoints = batched_keypoints.gather(
+        1, target_gt_idx_expanded.expand(-1, -1, keypoints.shape[1], keypoints.shape[2])
+    )
 
-        # Use target_gt_idx_expanded to select keypoints from batched_keypoints
-        selected_keypoints = batched_keypoints.gather(
-            1, target_gt_idx_expanded.expand(-1, -1, keypoints.shape[1], keypoints.shape[2])
-        )
+    # Divide coordinates by stride
+    selected_keypoints /= stride_tensor.view(1, -1, 1, 1)
 
-        # Divide coordinates by stride
-        selected_keypoints /= stride_tensor.view(1, -1, 1, 1)
+    kpts_loss = 0
+    kpts_obj_loss = 0
 
-        kpts_loss = 0
-        kpts_obj_loss = 0
+    if masks.any():
+        gt_kpt = selected_keypoints[masks]
+        area = xyxy2xywh(target_bboxes[masks])[:, 2:].prod(1, keepdim=True)
+        pred_kpt = pred_kpts[masks]
+        visibility_flags = gt_kpt[..., 2]  # Extract visibility flags (0 for invisible, 1 for occluded, 2 for visible)
 
-        if masks.any():
-            gt_kpt = selected_keypoints[masks]
-            area = xyxy2xywh(target_bboxes[masks])[:, 2:].prod(1, keepdim=True)
-            pred_kpt = pred_kpts[masks]
-            kpt_mask = gt_kpt[..., 2] != 0 if gt_kpt.shape[-1] == 3 else torch.full_like(gt_kpt[..., 0], True)
-            kpts_loss = self.keypoint_loss(pred_kpt, gt_kpt, kpt_mask, area)  # pose loss
+        # Update the keypoint mask to ignore invisible keypoints (flag 0)
+        kpt_mask = visibility_flags != 0
 
-            if pred_kpt.shape[-1] == 3:
-                kpts_obj_loss = self.bce_pose(pred_kpt[..., 2], kpt_mask.float())  # keypoint obj loss
+        # Compute the keypoint loss, passing the visibility flags
+        kpts_loss = self.keypoint_loss(pred_kpt, gt_kpt, kpt_mask, area, visibility_flags)
 
-        return kpts_loss, kpts_obj_loss
+        # Keypoint object loss (binary classification between occluded and visible)
+        kpts_obj_loss = self.bce_pose(pred_kpt[..., 2], (visibility_flags == 2).float())
+
+    return kpts_loss, kpts_obj_loss
 
 
 class v8ClassificationLoss:
