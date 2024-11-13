@@ -14,23 +14,23 @@ from ultralytics.utils import LOGGER, SimpleClass, TryExcept, plt_settings
 OKS_SIGMA = (
     np.array(
         [
-            0.26,
-            0.25,
-            0.25,
-            0.35,
-            0.35,
-            0.79,
-            0.79,
-            0.72,
-            0.72,
-            0.62,
-            0.62,
-            1.07,
-            1.07,
-            0.87,
-            0.87,
-            0.89,
-            0.89,
+            0.26,  # Nose
+            0.25,  # Left Eye
+            0.25,  # Right Eye
+            0.35,  # Left Ear
+            0.35,  # Right Ear
+            0.79,  # Left Shoulder
+            0.79,  # Right Shoulder
+            0.72,  # Left Elbow
+            0.72,  # Right Elbow
+            0.62,  # Left Wrist
+            0.62,  # Right Wrist
+            1.07,  # Left Hip
+            1.07,  # Right Hip
+            0.87,  # Left Knee
+            0.87,  # Right Knee
+            0.89,  # Left Ankle
+            0.89,  # Right Ankle
         ]
     )
     / 10.0

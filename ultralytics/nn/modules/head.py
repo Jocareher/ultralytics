@@ -272,8 +272,8 @@ class Pose(Detect):
             return a.view(bs, self.nk, -1)
         else:
             y = kpts.clone()
-            # if ndim == 3:
-            #     y[:, 2::3] = y[:, 2::3].sigmoid()  # sigmoid (WARNING: inplace .sigmoid_() Apple MPS bug)
+            if ndim == 3:
+                y[:, 2::3] = y[:, 2::3]  # sigmoid (WARNING: inplace .sigmoid_() Apple MPS bug)
             y[:, 0::ndim] = (y[:, 0::ndim] * 2.0 + (self.anchors[0] - 0.5)) * self.strides
             y[:, 1::ndim] = (y[:, 1::ndim] * 2.0 + (self.anchors[1] - 0.5)) * self.strides
             return y
