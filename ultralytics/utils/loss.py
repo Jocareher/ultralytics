@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ultralytics.utils.metrics import OKS_SIGMA
+from ultralytics.utils.metrics import OKS_SIGMA, OKS_SIGMA_72_LMKS
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
 from ultralytics.utils.tal import (
     RotatedTaskAlignedAssigner,
@@ -598,7 +598,7 @@ class v8PoseLoss(v8DetectionLoss):
         is_pose = self.kpt_shape == [17, 3]
         nkpt = self.kpt_shape[0]  # number of keypoints
         sigmas = (
-            torch.from_numpy(OKS_SIGMA).to(self.device)
+            torch.from_numpy(OKS_SIGMA_72_LMKS).to(self.device)
             if is_pose
             else torch.ones(nkpt, device=self.device) / nkpt
         )

@@ -36,6 +36,40 @@ OKS_SIGMA = (
     / 10.0
 )
 
+# Sigmas para los 72 landmarks
+OKS_SIGMA_72_LMKS = np.array([
+    # exR, enR, n, enL, exL
+    0.02, 0.02, 0.02, 0.02, 0.02,
+    # acR, aR, prn, aL, acL
+    0.03, 0.03, 0.02, 0.03, 0.03,
+    # sn, chR, cphR, ls, cphL, chL, li, sl, pg
+    0.02, 0.03, 0.02, 0.02, 0.02, 0.03, 0.02, 0.02, 0.03,
+    # tR, oiR, tL, oiL
+    0.04, 0.04, 0.04, 0.04,
+    # faceO_23 to faceO_35
+    *([0.04] * 13),
+    # rightEB_36-40
+    *([0.03] * 5),
+    # leftEB_41-45
+    *([0.03] * 5),
+    # nose_46-47
+    0.02, 0.02,
+    # rightE_48-51
+    *([0.02] * 4),
+    # leftE_52-55
+    *([0.02] * 4),
+    # upperL_56-57
+    *([0.02] * 2),
+    # lowerL_58-61
+    *([0.02] * 4),
+    # lipE_62, upperL_63-65
+    0.02, *([0.02] * 3),
+    # lipE_66, lowerL_67-69
+    0.02, *([0.02] * 3),
+    # chin_70-71
+    0.04, 0.04
+]) / 10.0
+
 
 def bbox_ioa(box1, box2, iou=False, eps=1e-7):
     """
