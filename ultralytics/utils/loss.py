@@ -220,7 +220,7 @@ class KeypointLoss(nn.Module):
 
         # Adjust loss weight based on visibility
         # Occluded keypoints (label 1) contribute less to the loss than visible keypoints (label 2)
-        visibility_weights = torch.where(visibility_flags == 2, 1.0, 0.5)
+        visibility_weights = torch.where(visibility_flags == 2, 2.5, 1.0)
 
         weighted_loss = (1 - torch.exp(-e)) * kpt_mask * visibility_weights
         return (kpt_loss_factor.view(-1, 1) * weighted_loss).mean()
@@ -787,13 +787,12 @@ class v8PoseLoss(v8DetectionLoss):
                 kpts_loss = self.keypoint_loss(
                     pred_kpt, gt_kpt, kpt_mask, area, visibility_flags
                 )
-
                 # Calculate pos_weight dynamically
                 num_visible = (visibility_flags == 2).float().sum()
                 #print(num_visible)
                 num_occluded = (visibility_flags == 1).float().sum()
                 #print(num_occluded)
-                pos_weight_value = num_occluded / (num_visible + 1e-9)
+                pos_weight_value = num_visible / (num_occluded + 1e-9)
                 pos_weight = torch.tensor([pos_weight_value], device=self.device)
 
                 # Keypoint object loss (binary classification between occluded and visible)
