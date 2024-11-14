@@ -740,6 +740,7 @@ class v8PoseLoss(v8DetectionLoss):
         """
         batch_idx = batch_idx.flatten()
         batch_size = len(masks)
+        #print(keypoints)
 
         # Find the maximum number of keypoints in a single image
         max_kpts = torch.unique(batch_idx, return_counts=True)[1].max()
@@ -762,22 +763,24 @@ class v8PoseLoss(v8DetectionLoss):
             target_gt_idx_expanded.expand(-1, -1, keypoints.shape[1], keypoints.shape[2]),
         )
 
-        # Divide coordinates by stride
-        selected_keypoints /= stride_tensor.view(1, -1, 1, 1)
+        # Divide only x and y coordinates by stride
+        selected_keypoints[..., :2] /= stride_tensor.view(1, -1, 1, 1)
 
         kpts_loss = 0
         kpts_obj_loss = 0
 
         if masks.any():
             gt_kpt = selected_keypoints[masks]  # Ground truth keypoints for positive samples
+            #print(gt_kpt)
             area = xyxy2xywh(target_bboxes[masks])[:, 2:].prod(1, keepdim=True)  # Bounding box area
             pred_kpt = pred_kpts[masks]  # Predicted keypoints for positive samples
 
             if pred_kpt.shape[-1] == 3:
+                #print(pred_kpt)
                 # Visibility information is available (ndim == 3)
                 visibility_flags = gt_kpt[..., 2]  # Extract visibility flags (0 for invisible, 1 for occluded, 2 for visible)
-
                 # Update the keypoint mask to ignore invisible keypoints (flag 0)
+                #print(visibility_flags)
                 kpt_mask = visibility_flags != 0
 
                 # Compute the keypoint loss, passing the visibility flags
@@ -787,7 +790,9 @@ class v8PoseLoss(v8DetectionLoss):
 
                 # Calculate pos_weight dynamically
                 num_visible = (visibility_flags == 2).float().sum()
+                #print(num_visible)
                 num_occluded = (visibility_flags == 1).float().sum()
+                #print(num_occluded)
                 pos_weight_value = num_occluded / (num_visible + 1e-9)
                 pos_weight = torch.tensor([pos_weight_value], device=self.device)
 
