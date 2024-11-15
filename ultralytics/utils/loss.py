@@ -781,7 +781,10 @@ class v8PoseLoss(v8DetectionLoss):
                 visibility_flags = gt_kpt[..., 2]  # Extract visibility flags (0 for invisible, 1 for occluded, 2 for visible)
                 # Update the keypoint mask to ignore invisible keypoints (flag 0)
                 #print(visibility_flags)
-                kpt_mask = visibility_flags != 0
+                #kpt_mask = visibility_flags != 0
+                # Include all keypoints in the mask
+                kpt_mask = torch.full_like(visibility_flags, True, dtype=torch.bool)
+                #print(kpt_mask)
 
                 # Compute the keypoint loss, passing the visibility flags
                 kpts_loss = self.keypoint_loss(
