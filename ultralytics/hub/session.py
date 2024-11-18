@@ -400,9 +400,9 @@ class HUBTrainingSession:
             retry=10,
             timeout=3600,
             thread=not final,
-            progress_total=weights.stat().st_size
-            if final
-            else None,  # only show progress if final
+            progress_total=(
+                weights.stat().st_size if final else None
+            ),  # only show progress if final
             stream_response=True,
         )
 

@@ -182,9 +182,7 @@ def check_imgsz(imgsz, stride=32, min_dim=1, max_dim=2, floor=0):
     sz = (
         [sz[0], sz[0]]
         if min_dim == 2 and len(sz) == 1
-        else sz[0]
-        if min_dim == 1 and len(sz) == 1
-        else sz
+        else sz[0] if min_dim == 1 and len(sz) == 1 else sz
     )
 
     return sz
@@ -241,9 +239,7 @@ def check_version(
         except metadata.PackageNotFoundError as e:
             if hard:
                 raise ModuleNotFoundError(
-                    emojis(
-                        f"WARNING ⚠️ {current} package is required but not installed"
-                    )
+                    emojis(f"WARNING ⚠️ {current} package is required but not installed")
                 ) from e
             else:
                 return False

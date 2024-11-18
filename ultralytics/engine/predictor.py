@@ -286,9 +286,9 @@ class BasePredictor:
                 with profilers[1]:
                     preds = self.inference(im, *args, **kwargs)
                     if self.args.embed:
-                        yield from [preds] if isinstance(
-                            preds, torch.Tensor
-                        ) else preds  # yield embedding tensors
+                        yield from (
+                            [preds] if isinstance(preds, torch.Tensor) else preds
+                        )  # yield embedding tensors
                         continue
 
                 # Postprocess
@@ -423,9 +423,7 @@ class BasePredictor:
                 suffix, fourcc = (
                     (".mp4", "avc1")
                     if MACOS
-                    else (".avi", "WMV2")
-                    if WINDOWS
-                    else (".avi", "MJPG")
+                    else (".avi", "WMV2") if WINDOWS else (".avi", "MJPG")
                 )
                 self.vid_writer[save_path] = cv2.VideoWriter(
                     filename=str(Path(save_path).with_suffix(suffix)),

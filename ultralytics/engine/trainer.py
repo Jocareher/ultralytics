@@ -265,9 +265,7 @@ class BaseTrainer:
         freeze_list = (
             self.args.freeze
             if isinstance(self.args.freeze, list)
-            else range(self.args.freeze)
-            if isinstance(self.args.freeze, int)
-            else []
+            else range(self.args.freeze) if isinstance(self.args.freeze, int) else []
         )
         always_freeze_names = [".dfl"]  # always freeze these layers
         freeze_layer_names = [f"model.{x}." for x in freeze_list] + always_freeze_names

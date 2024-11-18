@@ -779,9 +779,9 @@ class BasicLayer(nn.Module):
                     window_size=window_size,
                     mlp_ratio=mlp_ratio,
                     drop=drop,
-                    drop_path=drop_path[i]
-                    if isinstance(drop_path, list)
-                    else drop_path,
+                    drop_path=(
+                        drop_path[i] if isinstance(drop_path, list) else drop_path
+                    ),
                     local_conv_size=local_conv_size,
                     activation=activation,
                 )

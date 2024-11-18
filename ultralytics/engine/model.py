@@ -394,9 +394,9 @@ class Model(nn.Module):
         """
         self._check_is_pytorch_model()
         if isinstance(weights, (str, Path)):
-            self.overrides[
-                "pretrained"
-            ] = weights  # remember the weights for DDP training
+            self.overrides["pretrained"] = (
+                weights  # remember the weights for DDP training
+            )
             weights, self.ckpt = attempt_load_one_weight(weights)
         self.model.load(weights)
         return self
@@ -425,9 +425,11 @@ class Model(nn.Module):
         from ultralytics import __version__
 
         updates = {
-            "model": deepcopy(self.model).half()
-            if isinstance(self.model, nn.Module)
-            else self.model,
+            "model": (
+                deepcopy(self.model).half()
+                if isinstance(self.model, nn.Module)
+                else self.model
+            ),
             "date": datetime.now().isoformat(),
             "version": __version__,
             "license": "AGPL-3.0 License (https://ultralytics.com/license)",
@@ -976,9 +978,7 @@ class Model(nn.Module):
         self._check_is_pytorch_model()
         self = super()._apply(fn)  # noqa
         self.predictor = None  # reset predictor as device may have changed
-        self.overrides[
-            "device"
-        ] = (
+        self.overrides["device"] = (
             self.device
         )  # was str(self.device) i.e. device(type='cuda', index=0) -> 'cuda:0'
         return self

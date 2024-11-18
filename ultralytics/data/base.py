@@ -98,9 +98,7 @@ class BaseDataset(Dataset):
         self.cache = (
             cache.lower()
             if isinstance(cache, str)
-            else "ram"
-            if cache is True
-            else None
+            else "ram" if cache is True else None
         )
         if self.cache == "ram" and self.check_cache_ram():
             if hyp.deterministic:

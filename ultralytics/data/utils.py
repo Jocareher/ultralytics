@@ -492,9 +492,7 @@ def check_cls_dataset(dataset, split=""):
     val_set = (
         data_dir / "val"
         if (data_dir / "val").exists()
-        else data_dir / "validation"
-        if (data_dir / "validation").exists()
-        else None
+        else data_dir / "validation" if (data_dir / "validation").exists() else None
     )  # data/test or data/val
     test_set = (
         data_dir / "test" if (data_dir / "test").exists() else None
@@ -595,14 +593,14 @@ class HUBDatasetStats:
             try:
                 # Load YAML with checks
                 data = yaml_load(yaml_path)
-                data[
-                    "path"
-                ] = ""  # strip path since YAML should be in dataset root for all HUB datasets
+                data["path"] = (
+                    ""  # strip path since YAML should be in dataset root for all HUB datasets
+                )
                 yaml_save(yaml_path, data)
                 data = check_det_dataset(yaml_path, autodownload)  # dict
-                data[
-                    "path"
-                ] = data_dir  # YAML path should be set to '' (relative) or parent (absolute)
+                data["path"] = (
+                    data_dir  # YAML path should be set to '' (relative) or parent (absolute)
+                )
             except Exception as e:
                 raise Exception("error/HUB/dataset_stats/init") from e
 

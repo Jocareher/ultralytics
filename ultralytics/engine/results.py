@@ -572,9 +572,11 @@ class Results(SimpleClass):
             idx = (
                 pred_boxes.id
                 if pred_boxes.id is not None and color_mode == "instance"
-                else pred_boxes.cls
-                if pred_boxes and color_mode == "class"
-                else reversed(range(len(pred_masks)))
+                else (
+                    pred_boxes.cls
+                    if pred_boxes and color_mode == "class"
+                    else reversed(range(len(pred_masks)))
+                )
             )
             annotator.masks(
                 pred_masks.data, colors=[colors(x, True) for x in idx], im_gpu=im_gpu
@@ -599,13 +601,15 @@ class Results(SimpleClass):
                     box,
                     label,
                     color=colors(
-                        c
-                        if color_mode == "class"
-                        else id
-                        if id is not None
-                        else i
-                        if color_mode == "instance"
-                        else None,
+                        (
+                            c
+                            if color_mode == "class"
+                            else (
+                                id
+                                if id is not None
+                                else i if color_mode == "instance" else None
+                            )
+                        ),
                         True,
                     ),
                     rotated=is_obb,
@@ -1405,9 +1409,13 @@ class Keypoints(BaseTensor):
         """
         if keypoints.ndim == 2:
             keypoints = keypoints[None, :]
-        if keypoints.shape[2] == 3:  # x, y, conf
-            mask = keypoints[..., 2] < 0.5  # points with conf < 0.5 (not visible)
-            keypoints[..., :2][mask] = 0
+        if keypoints.shape[2] == 3:  # x, y, visibility
+            # Option 1: Do not modify coordinates, simply store visibility
+            pass  # Do nothing, keep coordinates as predicted
+            # Option 2: If you still want to filter, make threshold configurable
+            # visibility_threshold = 0.5  # Adjust based on your model's output
+            # mask = keypoints[..., 2] < visibility_threshold
+            # keypoints[..., :2][mask] = 0  # Set coordinates to zero for low visibility
         super().__init__(keypoints, orig_shape)
         self.has_visible = self.data.shape[-1] == 3
 

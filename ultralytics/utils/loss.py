@@ -220,7 +220,7 @@ class KeypointLoss(nn.Module):
 
         # Adjust loss weight based on visibility
         # Occluded keypoints (label 1) contribute less to the loss than visible keypoints (label 2)
-        visibility_weights = torch.where(visibility_flags == 2, 2.5, 1.0)
+        visibility_weights = torch.where(visibility_flags == 2, 1.5, 1.0)
 
         weighted_loss = (1 - torch.exp(-e)) * kpt_mask * visibility_weights
         return (kpt_loss_factor.view(-1, 1) * weighted_loss).mean()
@@ -700,11 +700,6 @@ class v8PoseLoss(v8DetectionLoss):
         y[..., :2] *= 2.0
         y[..., 0] += anchor_points[:, [0]] - 0.5
         y[..., 1] += anchor_points[:, [1]] - 0.5
-        # Decode visibility as binary (0 = occluded, 1 = visible)
-        # if y.shape[-1] == 3:  # Apply only if there is visibility flag
-        #     y[..., 2] = (
-        #         y[..., 2] > 0.0
-        #     ).float()  # Threshold for classifying visibility
 
         return y
 
@@ -740,7 +735,7 @@ class v8PoseLoss(v8DetectionLoss):
         """
         batch_idx = batch_idx.flatten()
         batch_size = len(masks)
-        #print(keypoints)
+        # print(keypoints)
 
         # Find the maximum number of keypoints in a single image
         max_kpts = torch.unique(batch_idx, return_counts=True)[1].max()
@@ -760,7 +755,9 @@ class v8PoseLoss(v8DetectionLoss):
         target_gt_idx_expanded = target_gt_idx.unsqueeze(-1).unsqueeze(-1)
         selected_keypoints = batched_keypoints.gather(
             1,
-            target_gt_idx_expanded.expand(-1, -1, keypoints.shape[1], keypoints.shape[2]),
+            target_gt_idx_expanded.expand(
+                -1, -1, keypoints.shape[1], keypoints.shape[2]
+            ),
         )
 
         # Divide only x and y coordinates by stride
@@ -770,21 +767,23 @@ class v8PoseLoss(v8DetectionLoss):
         kpts_obj_loss = 0
 
         if masks.any():
-            gt_kpt = selected_keypoints[masks]  # Ground truth keypoints for positive samples
-            #print(gt_kpt)
-            area = xyxy2xywh(target_bboxes[masks])[:, 2:].prod(1, keepdim=True)  # Bounding box area
+            gt_kpt = selected_keypoints[
+                masks
+            ]  # Ground truth keypoints for positive samples
+            # print(gt_kpt)
+            area = xyxy2xywh(target_bboxes[masks])[:, 2:].prod(
+                1, keepdim=True
+            )  # Bounding box area
             pred_kpt = pred_kpts[masks]  # Predicted keypoints for positive samples
 
             if pred_kpt.shape[-1] == 3:
-                #print(pred_kpt)
                 # Visibility information is available (ndim == 3)
-                visibility_flags = gt_kpt[..., 2]  # Extract visibility flags (0 for invisible, 1 for occluded, 2 for visible)
+                visibility_flags = gt_kpt[
+                    ..., 2
+                ]  # Extract visibility flags (0 for invisible, 1 for occluded, 2 for visible)
                 # Update the keypoint mask to ignore invisible keypoints (flag 0)
-                #print(visibility_flags)
-                #kpt_mask = visibility_flags != 0
+                kpt_mask = visibility_flags != 0
                 # Include all keypoints in the mask
-                kpt_mask = torch.full_like(visibility_flags, True, dtype=torch.bool)
-                #print(kpt_mask)
 
                 # Compute the keypoint loss, passing the visibility flags
                 kpts_loss = self.keypoint_loss(
@@ -792,16 +791,18 @@ class v8PoseLoss(v8DetectionLoss):
                 )
                 # Calculate pos_weight dynamically
                 num_visible = (visibility_flags == 2).float().sum()
-                #print(num_visible)
+                # print(num_visible)
                 num_occluded = (visibility_flags == 1).float().sum()
-                #print(num_occluded)
+                # print(num_occluded)
                 pos_weight_value = num_visible / (num_occluded + 1e-9)
                 pos_weight = torch.tensor([pos_weight_value], device=self.device)
 
                 # Keypoint object loss (binary classification between occluded and visible)
                 # Use raw logits for pred_kpt[..., 2], and target labels as (visibility_flags == 2).float()
                 kpts_obj_loss = F.binary_cross_entropy_with_logits(
-                    pred_kpt[..., 2], (visibility_flags == 2).float(), pos_weight=pos_weight
+                    pred_kpt[..., 2],
+                    (visibility_flags == 2).float(),
+                    pos_weight=pos_weight,
                 )
             else:
                 # No visibility information (ndim == 2)
@@ -809,15 +810,12 @@ class v8PoseLoss(v8DetectionLoss):
                 kpt_mask = torch.full_like(gt_kpt[..., 0], True)
 
                 # Compute the keypoint loss without visibility flags
-                kpts_loss = self.keypoint_loss(
-                    pred_kpt, gt_kpt, kpt_mask, area
-                )
+                kpts_loss = self.keypoint_loss(pred_kpt, gt_kpt, kpt_mask, area)
 
                 # No keypoint object loss when visibility is not considered
                 kpts_obj_loss = 0
 
         return kpts_loss, kpts_obj_loss
-
 
 
 class v8ClassificationLoss:

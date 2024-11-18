@@ -128,18 +128,18 @@ cv2.setNumThreads(
     0
 )  # prevent OpenCV from multithreading (incompatible with PyTorch DataLoader)
 os.environ["NUMEXPR_MAX_THREADS"] = str(NUM_THREADS)  # NumExpr max threads
-os.environ[
-    "CUBLAS_WORKSPACE_CONFIG"
-] = ":4096:8"  # for deterministic training to avoid CUDA warning
-os.environ[
-    "TF_CPP_MIN_LOG_LEVEL"
-] = "3"  # suppress verbose TF compiler warnings in Colab
-os.environ[
-    "TORCH_CPP_LOG_LEVEL"
-] = "ERROR"  # suppress "NNPACK.cpp could not initialize NNPACK" warnings
-os.environ[
-    "KINETO_LOG_LEVEL"
-] = "5"  # suppress verbose PyTorch profiler output when computing FLOPs
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = (
+    ":4096:8"  # for deterministic training to avoid CUDA warning
+)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = (
+    "3"  # suppress verbose TF compiler warnings in Colab
+)
+os.environ["TORCH_CPP_LOG_LEVEL"] = (
+    "ERROR"  # suppress "NNPACK.cpp could not initialize NNPACK" warnings
+)
+os.environ["KINETO_LOG_LEVEL"] = (
+    "5"  # suppress verbose PyTorch profiler output when computing FLOPs
+)
 
 
 class TQDM(tqdm_original):
@@ -1415,13 +1415,11 @@ RUNS_DIR = Path(SETTINGS["runs_dir"])  # global runs directory
 ENVIRONMENT = (
     "Colab"
     if IS_COLAB
-    else "Kaggle"
-    if IS_KAGGLE
-    else "Jupyter"
-    if IS_JUPYTER
-    else "Docker"
-    if IS_DOCKER
-    else platform.system()
+    else (
+        "Kaggle"
+        if IS_KAGGLE
+        else "Jupyter" if IS_JUPYTER else "Docker" if IS_DOCKER else platform.system()
+    )
 )
 TESTS_RUNNING = is_pytest_running() or is_github_action_running()
 set_sentry()

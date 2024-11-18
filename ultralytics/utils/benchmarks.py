@@ -300,9 +300,11 @@ class RF100Benchmark:
             >>> benchmark.set_key("api_key")
             >>> benchmark.parse_dataset("datasets_links.txt")
         """
-        (shutil.rmtree("rf-100"), os.mkdir("rf-100")) if os.path.exists(
-            "rf-100"
-        ) else os.mkdir("rf-100")
+        (
+            (shutil.rmtree("rf-100"), os.mkdir("rf-100"))
+            if os.path.exists("rf-100")
+            else os.mkdir("rf-100")
+        )
         os.chdir("rf-100")
         os.mkdir("ultralytics-benchmarks")
         safe_download(
