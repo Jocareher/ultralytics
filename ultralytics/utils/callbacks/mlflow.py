@@ -26,7 +26,9 @@ from ultralytics.utils import LOGGER, RUNS_DIR, SETTINGS, TESTS_RUNNING, colorst
 try:
     import os
 
-    assert not TESTS_RUNNING or "test_mlflow" in os.environ.get("PYTEST_CURRENT_TEST", "")  # do not log pytest
+    assert not TESTS_RUNNING or "test_mlflow" in os.environ.get(
+        "PYTEST_CURRENT_TEST", ""
+    )  # do not log pytest
     assert SETTINGS["mlflow"] is True  # verify integration is enabled
     import mlflow
 
@@ -71,7 +73,11 @@ def on_pretrain_routine_end(trainer):
     mlflow.set_tracking_uri(uri)
 
     # Set experiment and run names
-    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME") or trainer.args.project or "/Shared/Ultralytics"
+    experiment_name = (
+        os.environ.get("MLFLOW_EXPERIMENT_NAME")
+        or trainer.args.project
+        or "/Shared/Ultralytics"
+    )
     run_name = os.environ.get("MLFLOW_RUN") or trainer.args.name
     mlflow.set_experiment(experiment_name)
 
@@ -80,11 +86,16 @@ def on_pretrain_routine_end(trainer):
         active_run = mlflow.active_run() or mlflow.start_run(run_name=run_name)
         LOGGER.info(f"{PREFIX}logging run_id({active_run.info.run_id}) to {uri}")
         if Path(uri).is_dir():
-            LOGGER.info(f"{PREFIX}view at http://127.0.0.1:5000 with 'mlflow server --backend-store-uri {uri}'")
+            LOGGER.info(
+                f"{PREFIX}view at http://127.0.0.1:5000 with 'mlflow server --backend-store-uri {uri}'"
+            )
         LOGGER.info(f"{PREFIX}disable with 'yolo settings mlflow=False'")
         mlflow.log_params(dict(trainer.args))
     except Exception as e:
-        LOGGER.warning(f"{PREFIX}WARNING ⚠️ Failed to initialize: {e}\n" f"{PREFIX}WARNING ⚠️ Not tracking this run")
+        LOGGER.warning(
+            f"{PREFIX}WARNING ⚠️ Failed to initialize: {e}\n"
+            f"{PREFIX}WARNING ⚠️ Not tracking this run"
+        )
 
 
 def on_train_epoch_end(trainer):
@@ -93,7 +104,9 @@ def on_train_epoch_end(trainer):
         mlflow.log_metrics(
             metrics={
                 **sanitize_dict(trainer.lr),
-                **sanitize_dict(trainer.label_loss_items(trainer.tloss, prefix="train")),
+                **sanitize_dict(
+                    trainer.label_loss_items(trainer.tloss, prefix="train")
+                ),
             },
             step=trainer.epoch,
         )
@@ -109,13 +122,19 @@ def on_train_end(trainer):
     """Log model artifacts at the end of the training."""
     if not mlflow:
         return
-    mlflow.log_artifact(str(trainer.best.parent))  # log save_dir/weights directory with best.pt and last.pt
+    mlflow.log_artifact(
+        str(trainer.best.parent)
+    )  # log save_dir/weights directory with best.pt and last.pt
     for f in trainer.save_dir.glob("*"):  # log all other files in save_dir
         if f.suffix in {".png", ".jpg", ".csv", ".pt", ".yaml"}:
             mlflow.log_artifact(str(f))
-    keep_run_active = os.environ.get("MLFLOW_KEEP_RUN_ACTIVE", "False").lower() == "true"
+    keep_run_active = (
+        os.environ.get("MLFLOW_KEEP_RUN_ACTIVE", "False").lower() == "true"
+    )
     if keep_run_active:
-        LOGGER.info(f"{PREFIX}mlflow run still alive, remember to close it using mlflow.end_run()")
+        LOGGER.info(
+            f"{PREFIX}mlflow run still alive, remember to close it using mlflow.end_run()"
+        )
     else:
         mlflow.end_run()
         LOGGER.debug(f"{PREFIX}mlflow run ended")

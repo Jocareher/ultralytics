@@ -47,19 +47,29 @@ class TritonRemoteModel:
         if scheme == "http":
             import tritonclient.http as client  # noqa
 
-            self.triton_client = client.InferenceServerClient(url=self.url, verbose=False, ssl=False)
+            self.triton_client = client.InferenceServerClient(
+                url=self.url, verbose=False, ssl=False
+            )
             config = self.triton_client.get_model_config(endpoint)
         else:
             import tritonclient.grpc as client  # noqa
 
-            self.triton_client = client.InferenceServerClient(url=self.url, verbose=False, ssl=False)
-            config = self.triton_client.get_model_config(endpoint, as_json=True)["config"]
+            self.triton_client = client.InferenceServerClient(
+                url=self.url, verbose=False, ssl=False
+            )
+            config = self.triton_client.get_model_config(endpoint, as_json=True)[
+                "config"
+            ]
 
         # Sort output names alphabetically, i.e. 'output0', 'output1', etc.
         config["output"] = sorted(config["output"], key=lambda x: x.get("name"))
 
         # Define model attributes
-        type_map = {"TYPE_FP32": np.float32, "TYPE_FP16": np.float16, "TYPE_UINT8": np.uint8}
+        type_map = {
+            "TYPE_FP32": np.float32,
+            "TYPE_FP16": np.float16,
+            "TYPE_UINT8": np.uint8,
+        }
         self.InferRequestedOutput = client.InferRequestedOutput
         self.InferInput = client.InferInput
         self.input_formats = [x["data_type"] for x in config["input"]]
@@ -82,11 +92,22 @@ class TritonRemoteModel:
         for i, x in enumerate(inputs):
             if x.dtype != self.np_input_formats[i]:
                 x = x.astype(self.np_input_formats[i])
-            infer_input = self.InferInput(self.input_names[i], [*x.shape], self.input_formats[i].replace("TYPE_", ""))
+            infer_input = self.InferInput(
+                self.input_names[i],
+                [*x.shape],
+                self.input_formats[i].replace("TYPE_", ""),
+            )
             infer_input.set_data_from_numpy(x)
             infer_inputs.append(infer_input)
 
-        infer_outputs = [self.InferRequestedOutput(output_name) for output_name in self.output_names]
-        outputs = self.triton_client.infer(model_name=self.endpoint, inputs=infer_inputs, outputs=infer_outputs)
+        infer_outputs = [
+            self.InferRequestedOutput(output_name) for output_name in self.output_names
+        ]
+        outputs = self.triton_client.infer(
+            model_name=self.endpoint, inputs=infer_inputs, outputs=infer_outputs
+        )
 
-        return [outputs.as_numpy(output_name).astype(input_format) for output_name in self.output_names]
+        return [
+            outputs.as_numpy(output_name).astype(input_format)
+            for output_name in self.output_names
+        ]

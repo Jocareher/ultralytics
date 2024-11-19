@@ -70,7 +70,9 @@ class QueueManager(BaseSolution):
             >>> processed_frame = queue_manager.process_queue(frame)
         """
         self.counts = 0  # Reset counts every frame
-        self.annotator = Annotator(im0, line_width=self.line_width)  # Initialize annotator
+        self.annotator = Annotator(
+            im0, line_width=self.line_width
+        )  # Initialize annotator
         self.extract_tracks(im0)  # Extract tracks
 
         self.annotator.draw_region(
@@ -79,12 +81,16 @@ class QueueManager(BaseSolution):
 
         for box, track_id, cls in zip(self.boxes, self.track_ids, self.clss):
             # Draw bounding box and counting region
-            self.annotator.box_label(box, label=self.names[cls], color=colors(track_id, True))
+            self.annotator.box_label(
+                box, label=self.names[cls], color=colors(track_id, True)
+            )
             self.store_tracking_history(track_id, box)  # Store track history
 
             # Draw tracks of objects
             self.annotator.draw_centroid_and_tracks(
-                self.track_line, color=colors(int(track_id), True), track_thickness=self.line_width
+                self.track_line,
+                color=colors(int(track_id), True),
+                track_thickness=self.line_width,
             )
 
             # Cache frequently accessed attributes
@@ -94,7 +100,11 @@ class QueueManager(BaseSolution):
             prev_position = None
             if len(track_history) > 1:
                 prev_position = track_history[-2]
-            if self.region_length >= 3 and prev_position and self.r_s.contains(self.Point(self.track_line[-1])):
+            if (
+                self.region_length >= 3
+                and prev_position
+                and self.r_s.contains(self.Point(self.track_line[-1]))
+            ):
                 self.counts += 1
 
         # Display queue counts

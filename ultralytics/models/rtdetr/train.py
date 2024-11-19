@@ -43,7 +43,9 @@ class RTDETRTrainer(DetectionTrainer):
         Returns:
             (RTDETRDetectionModel): Initialized model.
         """
-        model = RTDETRDetectionModel(cfg, nc=self.data["nc"], verbose=verbose and RANK == -1)
+        model = RTDETRDetectionModel(
+            cfg, nc=self.data["nc"], verbose=verbose and RANK == -1
+        )
         if weights:
             model.load(weights)
         return model
@@ -80,7 +82,9 @@ class RTDETRTrainer(DetectionTrainer):
             (RTDETRValidator): Validator object for model validation.
         """
         self.loss_names = "giou_loss", "cls_loss", "l1_loss"
-        return RTDETRValidator(self.test_loader, save_dir=self.save_dir, args=copy(self.args))
+        return RTDETRValidator(
+            self.test_loader, save_dir=self.save_dir, args=copy(self.args)
+        )
 
     def preprocess_batch(self, batch):
         """
@@ -98,5 +102,9 @@ class RTDETRTrainer(DetectionTrainer):
         gt_bbox, gt_class = [], []
         for i in range(bs):
             gt_bbox.append(batch["bboxes"][batch_idx == i].to(batch_idx.device))
-            gt_class.append(batch["cls"][batch_idx == i].to(device=batch_idx.device, dtype=torch.long))
+            gt_class.append(
+                batch["cls"][batch_idx == i].to(
+                    device=batch_idx.device, dtype=torch.long
+                )
+            )
         return batch

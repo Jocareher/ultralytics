@@ -94,7 +94,9 @@ class RTDETRValidator(DetectionValidator):
 
     def postprocess(self, preds):
         """Apply Non-maximum suppression to prediction outputs."""
-        if not isinstance(preds, (list, tuple)):  # list for PyTorch inference but list[0] Tensor for export inference
+        if not isinstance(
+            preds, (list, tuple)
+        ):  # list for PyTorch inference but list[0] Tensor for export inference
             preds = [preds, None]
 
         bs, _, nd = preds[0].shape
@@ -125,11 +127,21 @@ class RTDETRValidator(DetectionValidator):
             bbox = ops.xywh2xyxy(bbox)  # target boxes
             bbox[..., [0, 2]] *= ori_shape[1]  # native-space pred
             bbox[..., [1, 3]] *= ori_shape[0]  # native-space pred
-        return {"cls": cls, "bbox": bbox, "ori_shape": ori_shape, "imgsz": imgsz, "ratio_pad": ratio_pad}
+        return {
+            "cls": cls,
+            "bbox": bbox,
+            "ori_shape": ori_shape,
+            "imgsz": imgsz,
+            "ratio_pad": ratio_pad,
+        }
 
     def _prepare_pred(self, pred, pbatch):
         """Prepares and returns a batch with transformed bounding boxes and class labels."""
         predn = pred.clone()
-        predn[..., [0, 2]] *= pbatch["ori_shape"][1] / self.args.imgsz  # native-space pred
-        predn[..., [1, 3]] *= pbatch["ori_shape"][0] / self.args.imgsz  # native-space pred
+        predn[..., [0, 2]] *= (
+            pbatch["ori_shape"][1] / self.args.imgsz
+        )  # native-space pred
+        predn[..., [1, 3]] *= (
+            pbatch["ori_shape"][0] / self.args.imgsz
+        )  # native-space pred
         return predn.float()

@@ -24,11 +24,20 @@ class SAHIInference:
         yolov8_model_path = f"models/{weights}"
         download_yolov8s_model(yolov8_model_path)
         self.detection_model = AutoDetectionModel.from_pretrained(
-            model_type="yolov8", model_path=yolov8_model_path, confidence_threshold=0.3, device="cpu"
+            model_type="yolov8",
+            model_path=yolov8_model_path,
+            confidence_threshold=0.3,
+            device="cpu",
         )
 
     def inference(
-        self, weights="yolov8n.pt", source="test.mp4", view_img=False, save_img=False, exist_ok=False, track=False
+        self,
+        weights="yolov8n.pt",
+        source="test.mp4",
+        view_img=False,
+        save_img=False,
+        exist_ok=False,
+        track=False,
     ):
         """
         Run object detection on a video using YOLOv8 and SAHI.
@@ -47,7 +56,9 @@ class SAHIInference:
         frame_width, frame_height = int(cap.get(3)), int(cap.get(4))
 
         # Output setup
-        save_dir = increment_path(Path("ultralytics_results_with_sahi") / "exp", exist_ok)
+        save_dir = increment_path(
+            Path("ultralytics_results_with_sahi") / "exp", exist_ok
+        )
         save_dir.mkdir(parents=True, exist_ok=True)
         video_writer = cv2.VideoWriter(
             str(save_dir / f"{Path(source).stem}.mp4"),
@@ -62,7 +73,9 @@ class SAHIInference:
             success, frame = cap.read()
             if not success:
                 break
-            annotator = Annotator(frame)  # Initialize annotator for plotting detection and tracking results
+            annotator = Annotator(
+                frame
+            )  # Initialize annotator for plotting detection and tracking results
             results = get_sliced_prediction(
                 frame,
                 self.detection_model,
@@ -72,12 +85,18 @@ class SAHIInference:
                 overlap_width_ratio=0.2,
             )
             detection_data = [
-                (det.category.name, det.category.id, (det.bbox.minx, det.bbox.miny, det.bbox.maxx, det.bbox.maxy))
+                (
+                    det.category.name,
+                    det.category.id,
+                    (det.bbox.minx, det.bbox.miny, det.bbox.maxx, det.bbox.maxy),
+                )
                 for det in results.object_prediction_list
             ]
 
             for det in detection_data:
-                annotator.box_label(det[2], label=str(det[0]), color=colors(int(det[1]), True))
+                annotator.box_label(
+                    det[2], label=str(det[0]), color=colors(int(det[1]), True)
+                )
 
             if view_img:
                 cv2.imshow(Path(source).stem, frame)
@@ -93,11 +112,17 @@ class SAHIInference:
     def parse_opt(self):
         """Parse command line arguments."""
         parser = argparse.ArgumentParser()
-        parser.add_argument("--weights", type=str, default="yolov8n.pt", help="initial weights path")
+        parser.add_argument(
+            "--weights", type=str, default="yolov8n.pt", help="initial weights path"
+        )
         parser.add_argument("--source", type=str, required=True, help="video file path")
         parser.add_argument("--view-img", action="store_true", help="show results")
         parser.add_argument("--save-img", action="store_true", help="save results")
-        parser.add_argument("--exist-ok", action="store_true", help="existing project/name ok, do not increment")
+        parser.add_argument(
+            "--exist-ok",
+            action="store_true",
+            help="existing project/name ok, do not increment",
+        )
         return parser.parse_args()
 
 

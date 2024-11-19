@@ -64,7 +64,11 @@ class DistanceCalculation(BaseSolution):
             self.left_mouse_count += 1
             if self.left_mouse_count <= 2:
                 for box, track_id in zip(self.boxes, self.track_ids):
-                    if box[0] < x < box[2] and box[1] < y < box[3] and track_id not in self.selected_boxes:
+                    if (
+                        box[0] < x < box[2]
+                        and box[1] < y < box[3]
+                        and track_id not in self.selected_boxes
+                    ):
                         self.selected_boxes[track_id] = box
 
         elif event == cv2.EVENT_RBUTTONDOWN:
@@ -91,12 +95,16 @@ class DistanceCalculation(BaseSolution):
             >>> frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
             >>> processed_frame = dc.calculate(frame)
         """
-        self.annotator = Annotator(im0, line_width=self.line_width)  # Initialize annotator
+        self.annotator = Annotator(
+            im0, line_width=self.line_width
+        )  # Initialize annotator
         self.extract_tracks(im0)  # Extract tracks
 
         # Iterate over bounding boxes, track ids and classes index
         for box, track_id, cls in zip(self.boxes, self.track_ids, self.clss):
-            self.annotator.box_label(box, color=colors(int(cls), True), label=self.names[int(cls)])
+            self.annotator.box_label(
+                box, color=colors(int(cls), True), label=self.names[int(cls)]
+            )
 
             if len(self.selected_boxes) == 2:
                 for trk_id in self.selected_boxes.keys():
@@ -106,11 +114,15 @@ class DistanceCalculation(BaseSolution):
         if len(self.selected_boxes) == 2:
             # Store user selected boxes in centroids list
             self.centroids.extend(
-                [[int((box[0] + box[2]) // 2), int((box[1] + box[3]) // 2)] for box in self.selected_boxes.values()]
+                [
+                    [int((box[0] + box[2]) // 2), int((box[1] + box[3]) // 2)]
+                    for box in self.selected_boxes.values()
+                ]
             )
             # Calculate pixels distance
             pixels_distance = math.sqrt(
-                (self.centroids[0][0] - self.centroids[1][0]) ** 2 + (self.centroids[0][1] - self.centroids[1][1]) ** 2
+                (self.centroids[0][0] - self.centroids[1][0]) ** 2
+                + (self.centroids[0][1] - self.centroids[1][1]) ** 2
             )
             self.annotator.plot_distance_and_line(pixels_distance, self.centroids)
 

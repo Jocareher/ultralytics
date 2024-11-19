@@ -33,7 +33,9 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-os.environ["JUPYTER_PLATFORM_DIRS"] = "1"  # fix DeprecationWarning: Jupyter is migrating to use standard platformdirs
+os.environ[
+    "JUPYTER_PLATFORM_DIRS"
+] = "1"  # fix DeprecationWarning: Jupyter is migrating to use standard platformdirs
 DOCS = Path(__file__).parent.resolve()
 SITE = DOCS.parent / "site"
 
@@ -54,7 +56,9 @@ def prepare_docs_markdown(clone_repos=True):
         shutil.rmtree(DOCS / "en/hub/sdk", ignore_errors=True)  # delete if exists
         shutil.copytree(local_dir / "docs", DOCS / "en/hub/sdk")  # for docs
         shutil.rmtree(DOCS.parent / "hub_sdk", ignore_errors=True)  # delete if exists
-        shutil.copytree(local_dir / "hub_sdk", DOCS.parent / "hub_sdk")  # for mkdocstrings
+        shutil.copytree(
+            local_dir / "hub_sdk", DOCS.parent / "hub_sdk"
+        )  # for mkdocstrings
         print(f"Cloned/Updated {repo} in {local_dir}")
 
     # Add frontmatter
@@ -69,7 +73,9 @@ def update_page_title(file_path: Path, new_title: str):
         content = file.read()
 
     # Replace the existing title with the new title
-    updated_content = re.sub(r"<title>.*?</title>", f"<title>{new_title}</title>", content)
+    updated_content = re.sub(
+        r"<title>.*?</title>", f"<title>{new_title}</title>", content
+    )
 
     # Write the updated content back to the file
     with open(file_path, "w", encoding="utf-8") as file:
@@ -89,7 +95,9 @@ def update_html_head(script=""):
         head_end_index = html_content.lower().rfind("</head>")
         if head_end_index != -1:
             # Add the specified JavaScript to the HTML file just before the end of the head tag.
-            new_html_content = html_content[:head_end_index] + script + html_content[head_end_index:]
+            new_html_content = (
+                html_content[:head_end_index] + script + html_content[head_end_index:]
+            )
             with html_file.open("w", encoding="utf-8") as file:
                 file.write(new_html_content)
 
@@ -122,7 +130,10 @@ def update_markdown_files(md_filepath: Path):
         content = content.replace("‘", "'").replace("’", "'")
 
         # Add frontmatter if missing
-        if not content.strip().startswith("---\n") and "macros" not in md_filepath.parts:  # skip macros directory
+        if (
+            not content.strip().startswith("---\n")
+            and "macros" not in md_filepath.parts
+        ):  # skip macros directory
             header = "---\ncomments: true\ndescription: TODO ADD DESCRIPTION\nkeywords: TODO ADD KEYWORDS\n---\n\n"
             content = header + content
 
@@ -195,9 +206,14 @@ def convert_plaintext_links_to_html(content):
         return content  # Return original content if main content area not found
 
     modified = False
-    for paragraph in main_content.find_all(["p", "li"]):  # Focus on paragraphs and list items
+    for paragraph in main_content.find_all(
+        ["p", "li"]
+    ):  # Focus on paragraphs and list items
         for text_node in paragraph.find_all(string=True, recursive=False):
-            if text_node.parent.name not in {"a", "code"}:  # Ignore links and code blocks
+            if text_node.parent.name not in {
+                "a",
+                "code",
+            }:  # Ignore links and code blocks
                 new_text = re.sub(
                     r"(https?://[^\s()<>]*[^\s()<>.,:;!?\'\"])",
                     r'<a href="\1">\1</a>',
@@ -263,7 +279,10 @@ def minify_html_files():
 
     total_reduction = total_original_size - total_minified_size
     total_percent_reduction = (total_reduction / total_original_size) * 100
-    print(f"Minify HTML reduction: {total_percent_reduction:.2f}% " f"({total_reduction / 1024:.2f} KB saved)")
+    print(
+        f"Minify HTML reduction: {total_percent_reduction:.2f}% "
+        f"({total_reduction / 1024:.2f} KB saved)"
+    )
 
 
 def main():
@@ -272,7 +291,9 @@ def main():
 
     # Build the main documentation
     print(f"Building docs from {DOCS}")
-    subprocess.run(f"mkdocs build -f {DOCS.parent}/mkdocs.yml --strict", check=True, shell=True)
+    subprocess.run(
+        f"mkdocs build -f {DOCS.parent}/mkdocs.yml --strict", check=True, shell=True
+    )
     remove_macros()
     print(f"Site built at {SITE}")
 
@@ -283,7 +304,9 @@ def main():
     minify_html_files()
 
     # Show command to serve built website
-    print('Docs built correctly ✅\nServe site at http://localhost:8000 with "python -m http.server --directory site"')
+    print(
+        'Docs built correctly ✅\nServe site at http://localhost:8000 with "python -m http.server --directory site"'
+    )
 
 
 if __name__ == "__main__":

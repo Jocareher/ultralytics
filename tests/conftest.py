@@ -16,7 +16,9 @@ def pytest_addoption(parser):
     Returns:
         (None)
     """
-    parser.addoption("--slow", action="store_true", default=False, help="Run slow tests")
+    parser.addoption(
+        "--slow", action="store_true", default=False, help="Run slow tests"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -73,11 +75,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     from ultralytics.utils import WEIGHTS_DIR
 
     # Remove files
-    models = [path for x in ["*.onnx", "*.torchscript"] for path in WEIGHTS_DIR.rglob(x)]
+    models = [
+        path for x in ["*.onnx", "*.torchscript"] for path in WEIGHTS_DIR.rglob(x)
+    ]
     for file in ["bus.jpg", "yolo11n.onnx", "yolo11n.torchscript"] + models:
         Path(file).unlink(missing_ok=True)
 
     # Remove directories
-    models = [path for x in ["*.mlpackage", "*_openvino_model"] for path in WEIGHTS_DIR.rglob(x)]
+    models = [
+        path
+        for x in ["*.mlpackage", "*_openvino_model"]
+        for path in WEIGHTS_DIR.rglob(x)
+    ]
     for directory in [TMP.parents[1] / ".pytest_cache", TMP] + models:
         shutil.rmtree(directory, ignore_errors=True)

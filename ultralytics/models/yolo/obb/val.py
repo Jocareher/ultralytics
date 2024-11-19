@@ -24,11 +24,15 @@ class OBBValidator(DetectionValidator):
         ```
     """
 
-    def __init__(self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None):
+    def __init__(
+        self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None
+    ):
         """Initialize OBBValidator and set task to 'obb', metrics to OBBMetrics."""
         super().__init__(dataloader, save_dir, pbar, args, _callbacks)
         self.args.task = "obb"
-        self.metrics = OBBMetrics(save_dir=self.save_dir, plot=True, on_plot=self.on_plot)
+        self.metrics = OBBMetrics(
+            save_dir=self.save_dir, plot=True, on_plot=self.on_plot
+        )
 
     def init_metrics(self, model):
         """Initialize evaluation metrics for YOLO."""
@@ -76,7 +80,9 @@ class OBBValidator(DetectionValidator):
         Note:
             This method relies on `batch_probiou` to calculate IoU between detections and ground truth bounding boxes.
         """
-        iou = batch_probiou(gt_bboxes, torch.cat([detections[:, :4], detections[:, -1:]], dim=-1))
+        iou = batch_probiou(
+            gt_bboxes, torch.cat([detections[:, :4], detections[:, -1:]], dim=-1)
+        )
         return self.match_predictions(detections[:, 5], gt_cls, iou)
 
     def _prepare_batch(self, si, batch):
@@ -88,15 +94,29 @@ class OBBValidator(DetectionValidator):
         imgsz = batch["img"].shape[2:]
         ratio_pad = batch["ratio_pad"][si]
         if len(cls):
-            bbox[..., :4].mul_(torch.tensor(imgsz, device=self.device)[[1, 0, 1, 0]])  # target boxes
-            ops.scale_boxes(imgsz, bbox, ori_shape, ratio_pad=ratio_pad, xywh=True)  # native-space labels
-        return {"cls": cls, "bbox": bbox, "ori_shape": ori_shape, "imgsz": imgsz, "ratio_pad": ratio_pad}
+            bbox[..., :4].mul_(
+                torch.tensor(imgsz, device=self.device)[[1, 0, 1, 0]]
+            )  # target boxes
+            ops.scale_boxes(
+                imgsz, bbox, ori_shape, ratio_pad=ratio_pad, xywh=True
+            )  # native-space labels
+        return {
+            "cls": cls,
+            "bbox": bbox,
+            "ori_shape": ori_shape,
+            "imgsz": imgsz,
+            "ratio_pad": ratio_pad,
+        }
 
     def _prepare_pred(self, pred, pbatch):
         """Prepares and returns a batch for OBB validation with scaled and padded bounding boxes."""
         predn = pred.clone()
         ops.scale_boxes(
-            pbatch["imgsz"], predn[:, :4], pbatch["ori_shape"], ratio_pad=pbatch["ratio_pad"], xywh=True
+            pbatch["imgsz"],
+            predn[:, :4],
+            pbatch["ori_shape"],
+            ratio_pad=pbatch["ratio_pad"],
+            xywh=True,
         )  # native-space pred
         return predn
 
@@ -164,17 +184,23 @@ class OBBValidator(DetectionValidator):
                 p = d["poly"]
 
                 with open(f'{pred_txt / f"Task1_{classname}"}.txt', "a") as f:
-                    f.writelines(f"{image_id} {score} {p[0]} {p[1]} {p[2]} {p[3]} {p[4]} {p[5]} {p[6]} {p[7]}\n")
+                    f.writelines(
+                        f"{image_id} {score} {p[0]} {p[1]} {p[2]} {p[3]} {p[4]} {p[5]} {p[6]} {p[7]}\n"
+                    )
             # Save merged results, this could result slightly lower map than using official merging script,
             # because of the probiou calculation.
             pred_merged_txt = self.save_dir / "predictions_merged_txt"  # predictions
             pred_merged_txt.mkdir(parents=True, exist_ok=True)
             merged_results = defaultdict(list)
-            LOGGER.info(f"Saving merged predictions with DOTA format to {pred_merged_txt}...")
+            LOGGER.info(
+                f"Saving merged predictions with DOTA format to {pred_merged_txt}..."
+            )
             for d in data:
                 image_id = d["image_id"].split("__")[0]
                 pattern = re.compile(r"\d+___\d+")
-                x, y = (int(c) for c in re.findall(pattern, d["image_id"])[0].split("___"))
+                x, y = (
+                    int(c) for c in re.findall(pattern, d["image_id"])[0].split("___")
+                )
                 bbox, score, cls = d["rbox"], d["score"], d["category_id"]
                 bbox[0] += x
                 bbox[1] += y
@@ -197,7 +223,11 @@ class OBBValidator(DetectionValidator):
                     p = [round(i, 3) for i in x[:-2]]  # poly
                     score = round(x[-2], 3)
 
-                    with open(f'{pred_merged_txt / f"Task1_{classname}"}.txt', "a") as f:
-                        f.writelines(f"{image_id} {score} {p[0]} {p[1]} {p[2]} {p[3]} {p[4]} {p[5]} {p[6]} {p[7]}\n")
+                    with open(
+                        f'{pred_merged_txt / f"Task1_{classname}"}.txt', "a"
+                    ) as f:
+                        f.writelines(
+                            f"{image_id} {score} {p[0]} {p[1]} {p[2]} {p[3]} {p[4]} {p[5]} {p[6]} {p[7]}\n"
+                        )
 
         return stats

@@ -16,7 +16,11 @@ from ultralytics.utils.checks import check_version
 from ultralytics.utils.instance import Instances
 from ultralytics.utils.metrics import bbox_ioa
 from ultralytics.utils.ops import segment2box, xyxyxyxy2xywhr
-from ultralytics.utils.torch_utils import TORCHVISION_0_10, TORCHVISION_0_11, TORCHVISION_0_13
+from ultralytics.utils.torch_utils import (
+    TORCHVISION_0_10,
+    TORCHVISION_0_11,
+    TORCHVISION_0_13,
+)
 
 DEFAULT_MEAN = (0.0, 0.0, 0.0)
 DEFAULT_STD = (1.0, 1.0, 1.0)
@@ -249,7 +253,9 @@ class Compose:
             >>> single_transform = compose[1]  # Returns a Compose object with only RandomPerspective
             >>> multiple_transforms = compose[0:2]  # Returns a Compose object with RandomFlip and RandomPerspective
         """
-        assert isinstance(index, (int, list)), f"The indices should be either list or int type but got {type(index)}"
+        assert isinstance(
+            index, (int, list)
+        ), f"The indices should be either list or int type but got {type(index)}"
         index = [index] if isinstance(index, int) else index
         return Compose([self.transforms[i] for i in index])
 
@@ -269,7 +275,9 @@ class Compose:
             >>> compose[1] = NewTransform()  # Replace second transform
             >>> compose[0:2] = [NewTransform1(), NewTransform2()]  # Replace first two transforms
         """
-        assert isinstance(index, (int, list)), f"The indices should be either list or int type but got {type(index)}"
+        assert isinstance(
+            index, (int, list)
+        ), f"The indices should be either list or int type but got {type(index)}"
         if isinstance(index, list):
             assert isinstance(
                 value, list
@@ -277,7 +285,9 @@ class Compose:
         if isinstance(index, int):
             index, value = [index], [value]
         for i, v in zip(index, value):
-            assert i < len(self.transforms), f"list index {i} out of range {len(self.transforms)}."
+            assert i < len(
+                self.transforms
+            ), f"list index {i} out of range {len(self.transforms)}."
             self.transforms[i] = v
 
     def tolist(self):
@@ -312,7 +322,9 @@ class Compose:
                 RandomPerspective(degrees=10, translate=0.1, scale=0.1)
             ])
         """
-        return f"{self.__class__.__name__}({', '.join([f'{t}' for t in self.transforms])})"
+        return (
+            f"{self.__class__.__name__}({', '.join([f'{t}' for t in self.transforms])})"
+        )
 
 
 class BaseMixTransform:
@@ -474,7 +486,9 @@ class BaseMixTransform:
         if "texts" not in labels:
             return labels
 
-        mix_texts = sum([labels["texts"]] + [x["texts"] for x in labels["mix_labels"]], [])
+        mix_texts = sum(
+            [labels["texts"]] + [x["texts"] for x in labels["mix_labels"]], []
+        )
         mix_texts = list({tuple(x) for x in mix_texts})
         text2id = {text: i for i, text in enumerate(mix_texts)}
 
@@ -589,10 +603,16 @@ class Mosaic(BaseMixTransform):
             >>> mosaic = Mosaic(dataset, imgsz=640, p=1.0, n=4)
             >>> augmented_data = mosaic._mix_transform(labels)
         """
-        assert labels.get("rect_shape", None) is None, "rect and mosaic are mutually exclusive."
-        assert len(labels.get("mix_labels", [])), "There are no other images for mosaic augment."
+        assert (
+            labels.get("rect_shape", None) is None
+        ), "rect and mosaic are mutually exclusive."
+        assert len(
+            labels.get("mix_labels", [])
+        ), "There are no other images for mosaic augment."
         return (
-            self._mosaic3(labels) if self.n == 3 else self._mosaic4(labels) if self.n == 4 else self._mosaic9(labels)
+            self._mosaic3(labels)
+            if self.n == 3
+            else self._mosaic4(labels) if self.n == 4 else self._mosaic9(labels)
         )  # This code is modified for mosaic3 method.
 
     def _mosaic3(self, labels):
@@ -632,7 +652,9 @@ class Mosaic(BaseMixTransform):
 
             # Place img in img3
             if i == 0:  # center
-                img3 = np.full((s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8)  # base image with 3 tiles
+                img3 = np.full(
+                    (s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8
+                )  # base image with 3 tiles
                 h0, w0 = h, w
                 c = s, s, s + w, s + h  # xmin, ymin, xmax, ymax (base) coordinates
             elif i == 1:  # right
@@ -643,15 +665,21 @@ class Mosaic(BaseMixTransform):
             padw, padh = c[:2]
             x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
 
-            img3[y1:y2, x1:x2] = img[y1 - padh :, x1 - padw :]  # img3[ymin:ymax, xmin:xmax]
+            img3[y1:y2, x1:x2] = img[
+                y1 - padh :, x1 - padw :
+            ]  # img3[ymin:ymax, xmin:xmax]
             # hp, wp = h, w  # height, width previous for next iteration
 
             # Labels assuming imgsz*2 mosaic size
-            labels_patch = self._update_labels(labels_patch, padw + self.border[0], padh + self.border[1])
+            labels_patch = self._update_labels(
+                labels_patch, padw + self.border[0], padh + self.border[1]
+            )
             mosaic_labels.append(labels_patch)
         final_labels = self._cat_labels(mosaic_labels)
 
-        final_labels["img"] = img3[-self.border[0] : self.border[0], -self.border[1] : self.border[1]]
+        final_labels["img"] = img3[
+            -self.border[0] : self.border[0], -self.border[1] : self.border[1]
+        ]
         return final_labels
 
     def _mosaic4(self, labels):
@@ -680,7 +708,9 @@ class Mosaic(BaseMixTransform):
         """
         mosaic_labels = []
         s = self.imgsz
-        yc, xc = (int(random.uniform(-x, 2 * s + x)) for x in self.border)  # mosaic center x, y
+        yc, xc = (
+            int(random.uniform(-x, 2 * s + x)) for x in self.border
+        )  # mosaic center x, y
         for i in range(4):
             labels_patch = labels if i == 0 else labels["mix_labels"][i - 1]
             # Load image
@@ -689,9 +719,21 @@ class Mosaic(BaseMixTransform):
 
             # Place img in img4
             if i == 0:  # top left
-                img4 = np.full((s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
-                x1a, y1a, x2a, y2a = max(xc - w, 0), max(yc - h, 0), xc, yc  # xmin, ymin, xmax, ymax (large image)
-                x1b, y1b, x2b, y2b = w - (x2a - x1a), h - (y2a - y1a), w, h  # xmin, ymin, xmax, ymax (small image)
+                img4 = np.full(
+                    (s * 2, s * 2, img.shape[2]), 114, dtype=np.uint8
+                )  # base image with 4 tiles
+                x1a, y1a, x2a, y2a = (
+                    max(xc - w, 0),
+                    max(yc - h, 0),
+                    xc,
+                    yc,
+                )  # xmin, ymin, xmax, ymax (large image)
+                x1b, y1b, x2b, y2b = (
+                    w - (x2a - x1a),
+                    h - (y2a - y1a),
+                    w,
+                    h,
+                )  # xmin, ymin, xmax, ymax (small image)
             elif i == 1:  # top right
                 x1a, y1a, x2a, y2a = xc, max(yc - h, 0), min(xc + w, s * 2), yc
                 x1b, y1b, x2b, y2b = 0, h - (y2a - y1a), min(w, x2a - x1a), h
@@ -749,7 +791,9 @@ class Mosaic(BaseMixTransform):
 
             # Place img in img9
             if i == 0:  # center
-                img9 = np.full((s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8)  # base image with 4 tiles
+                img9 = np.full(
+                    (s * 3, s * 3, img.shape[2]), 114, dtype=np.uint8
+                )  # base image with 4 tiles
                 h0, w0 = h, w
                 c = s, s, s + w, s + h  # xmin, ymin, xmax, ymax (base) coordinates
             elif i == 1:  # top
@@ -773,15 +817,21 @@ class Mosaic(BaseMixTransform):
             x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
 
             # Image
-            img9[y1:y2, x1:x2] = img[y1 - padh :, x1 - padw :]  # img9[ymin:ymax, xmin:xmax]
+            img9[y1:y2, x1:x2] = img[
+                y1 - padh :, x1 - padw :
+            ]  # img9[ymin:ymax, xmin:xmax]
             hp, wp = h, w  # height, width previous for next iteration
 
             # Labels assuming imgsz*2 mosaic size
-            labels_patch = self._update_labels(labels_patch, padw + self.border[0], padh + self.border[1])
+            labels_patch = self._update_labels(
+                labels_patch, padw + self.border[0], padh + self.border[1]
+            )
             mosaic_labels.append(labels_patch)
         final_labels = self._cat_labels(mosaic_labels)
 
-        final_labels["img"] = img9[-self.border[0] : self.border[0], -self.border[1] : self.border[1]]
+        final_labels["img"] = img9[
+            -self.border[0] : self.border[0], -self.border[1] : self.border[1]
+        ]
         return final_labels
 
     @staticmethod
@@ -943,7 +993,9 @@ class MixUp(BaseMixTransform):
         r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
         labels2 = labels["mix_labels"][0]
         labels["img"] = (labels["img"] * r + labels2["img"] * (1 - r)).astype(np.uint8)
-        labels["instances"] = Instances.concatenate([labels["instances"], labels2["instances"]], axis=0)
+        labels["instances"] = Instances.concatenate(
+            [labels["instances"], labels2["instances"]], axis=0
+        )
         labels["cls"] = np.concatenate([labels["cls"], labels2["cls"]], 0)
         return labels
 
@@ -983,7 +1035,14 @@ class RandomPerspective:
     """
 
     def __init__(
-        self, degrees=0.0, translate=0.1, scale=0.5, shear=0.0, perspective=0.0, border=(0, 0), pre_transform=None
+        self,
+        degrees=0.0,
+        translate=0.1,
+        scale=0.5,
+        shear=0.0,
+        perspective=0.0,
+        border=(0, 0),
+        pre_transform=None,
     ):
         """
         Initializes RandomPerspective object with transformation parameters.
@@ -1045,8 +1104,12 @@ class RandomPerspective:
 
         # Perspective
         P = np.eye(3, dtype=np.float32)
-        P[2, 0] = random.uniform(-self.perspective, self.perspective)  # x perspective (about y)
-        P[2, 1] = random.uniform(-self.perspective, self.perspective)  # y perspective (about x)
+        P[2, 0] = random.uniform(
+            -self.perspective, self.perspective
+        )  # x perspective (about y)
+        P[2, 1] = random.uniform(
+            -self.perspective, self.perspective
+        )  # y perspective (about x)
 
         # Rotation and Scale
         R = np.eye(3, dtype=np.float32)
@@ -1058,22 +1121,36 @@ class RandomPerspective:
 
         # Shear
         S = np.eye(3, dtype=np.float32)
-        S[0, 1] = math.tan(random.uniform(-self.shear, self.shear) * math.pi / 180)  # x shear (deg)
-        S[1, 0] = math.tan(random.uniform(-self.shear, self.shear) * math.pi / 180)  # y shear (deg)
+        S[0, 1] = math.tan(
+            random.uniform(-self.shear, self.shear) * math.pi / 180
+        )  # x shear (deg)
+        S[1, 0] = math.tan(
+            random.uniform(-self.shear, self.shear) * math.pi / 180
+        )  # y shear (deg)
 
         # Translation
         T = np.eye(3, dtype=np.float32)
-        T[0, 2] = random.uniform(0.5 - self.translate, 0.5 + self.translate) * self.size[0]  # x translation (pixels)
-        T[1, 2] = random.uniform(0.5 - self.translate, 0.5 + self.translate) * self.size[1]  # y translation (pixels)
+        T[0, 2] = (
+            random.uniform(0.5 - self.translate, 0.5 + self.translate) * self.size[0]
+        )  # x translation (pixels)
+        T[1, 2] = (
+            random.uniform(0.5 - self.translate, 0.5 + self.translate) * self.size[1]
+        )  # y translation (pixels)
 
         # Combined rotation matrix
         M = T @ S @ R @ P @ C  # order of operations (right to left) is IMPORTANT
         # Affine image
-        if (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any():  # image changed
+        if (
+            (border[0] != 0) or (border[1] != 0) or (M != np.eye(3)).any()
+        ):  # image changed
             if self.perspective:
-                img = cv2.warpPerspective(img, M, dsize=self.size, borderValue=(114, 114, 114))
+                img = cv2.warpPerspective(
+                    img, M, dsize=self.size, borderValue=(114, 114, 114)
+                )
             else:  # affine
-                img = cv2.warpAffine(img, M[:2], dsize=self.size, borderValue=(114, 114, 114))
+                img = cv2.warpAffine(
+                    img, M[:2], dsize=self.size, borderValue=(114, 114, 114)
+                )
         return img, M, s
 
     def apply_bboxes(self, bboxes, M):
@@ -1101,14 +1178,22 @@ class RandomPerspective:
             return bboxes
 
         xy = np.ones((n * 4, 3), dtype=bboxes.dtype)
-        xy[:, :2] = bboxes[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(n * 4, 2)  # x1y1, x2y2, x1y2, x2y1
+        xy[:, :2] = bboxes[:, [0, 1, 2, 3, 0, 3, 2, 1]].reshape(
+            n * 4, 2
+        )  # x1y1, x2y2, x1y2, x2y1
         xy = xy @ M.T  # transform
-        xy = (xy[:, :2] / xy[:, 2:3] if self.perspective else xy[:, :2]).reshape(n, 8)  # perspective rescale or affine
+        xy = (xy[:, :2] / xy[:, 2:3] if self.perspective else xy[:, :2]).reshape(
+            n, 8
+        )  # perspective rescale or affine
 
         # Create new boxes
         x = xy[:, [0, 2, 4, 6]]
         y = xy[:, [1, 3, 5, 7]]
-        return np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1)), dtype=bboxes.dtype).reshape(4, n).T
+        return (
+            np.concatenate((x.min(1), y.min(1), x.max(1), y.max(1)), dtype=bboxes.dtype)
+            .reshape(4, n)
+            .T
+        )
 
     def apply_segments(self, segments, M):
         """
@@ -1142,7 +1227,9 @@ class RandomPerspective:
         xy = xy @ M.T  # transform
         xy = xy[:, :2] / xy[:, 2:3]
         segments = xy.reshape(n, -1, 2)
-        bboxes = np.stack([segment2box(xy, self.size[0], self.size[1]) for xy in segments], 0)
+        bboxes = np.stack(
+            [segment2box(xy, self.size[0], self.size[1]) for xy in segments], 0
+        )
         segments[..., 0] = segments[..., 0].clip(bboxes[:, 0:1], bboxes[:, 2:3])
         segments[..., 1] = segments[..., 1].clip(bboxes[:, 1:2], bboxes[:, 3:4])
         return bboxes, segments
@@ -1177,7 +1264,12 @@ class RandomPerspective:
         xy[:, :2] = keypoints[..., :2].reshape(n * nkpt, 2)
         xy = xy @ M.T  # transform
         xy = xy[:, :2] / xy[:, 2:3]  # perspective rescale or affine
-        out_mask = (xy[:, 0] < 0) | (xy[:, 1] < 0) | (xy[:, 0] > self.size[0]) | (xy[:, 1] > self.size[1])
+        out_mask = (
+            (xy[:, 0] < 0)
+            | (xy[:, 1] < 0)
+            | (xy[:, 0] > self.size[0])
+            | (xy[:, 1] > self.size[1])
+        )
         visible[out_mask] = 0
         return np.concatenate([xy, visible], axis=-1).reshape(n, nkpt, 3)
 
@@ -1243,7 +1335,9 @@ class RandomPerspective:
 
         if keypoints is not None:
             keypoints = self.apply_keypoints(keypoints, M)
-        new_instances = Instances(bboxes, segments, keypoints, bbox_format="xyxy", normalized=False)
+        new_instances = Instances(
+            bboxes, segments, keypoints, bbox_format="xyxy", normalized=False
+        )
         # Clip
         new_instances.clip(*self.size)
 
@@ -1251,7 +1345,9 @@ class RandomPerspective:
         instances.scale(scale_w=scale, scale_h=scale, bbox_only=True)
         # Make the bboxes have the same scale with new_bboxes
         i = self.box_candidates(
-            box1=instances.bboxes.T, box2=new_instances.bboxes.T, area_thr=0.01 if len(segments) else 0.10
+            box1=instances.bboxes.T,
+            box2=new_instances.bboxes.T,
+            area_thr=0.01 if len(segments) else 0.10,
         )
         labels["instances"] = new_instances[i]
         labels["cls"] = cls[i]
@@ -1295,7 +1391,12 @@ class RandomPerspective:
         w1, h1 = box1[2] - box1[0], box1[3] - box1[1]
         w2, h2 = box2[2] - box2[0], box2[3] - box2[1]
         ar = np.maximum(w2 / (h2 + eps), h2 / (w2 + eps))  # aspect ratio
-        return (w2 > wh_thr) & (h2 > wh_thr) & (w2 * h2 / (w1 * h1 + eps) > area_thr) & (ar < ar_thr)  # candidates
+        return (
+            (w2 > wh_thr)
+            & (h2 > wh_thr)
+            & (w2 * h2 / (w1 * h1 + eps) > area_thr)
+            & (ar < ar_thr)
+        )  # candidates
 
 
 class RandomHSV:
@@ -1364,7 +1465,9 @@ class RandomHSV:
         """
         img = labels["img"]
         if self.hgain or self.sgain or self.vgain:
-            r = np.random.uniform(-1, 1, 3) * [self.hgain, self.sgain, self.vgain] + 1  # random gains
+            r = (
+                np.random.uniform(-1, 1, 3) * [self.hgain, self.sgain, self.vgain] + 1
+            )  # random gains
             hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
             dtype = img.dtype  # uint8
 
@@ -1373,7 +1476,9 @@ class RandomHSV:
             lut_sat = np.clip(x * r[1], 0, 255).astype(dtype)
             lut_val = np.clip(x * r[2], 0, 255).astype(dtype)
 
-            im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
+            im_hsv = cv2.merge(
+                (cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val))
+            )
             cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
         return labels
 
@@ -1419,7 +1524,10 @@ class RandomFlip:
             >>> flip = RandomFlip(p=0.5, direction="horizontal")
             >>> flip = RandomFlip(p=0.7, direction="vertical", flip_idx=[1, 0, 3, 2, 5, 4])
         """
-        assert direction in {"horizontal", "vertical"}, f"Support direction `horizontal` or `vertical`, got {direction}"
+        assert direction in {
+            "horizontal",
+            "vertical",
+        }, f"Support direction `horizontal` or `vertical`, got {direction}"
         assert 0 <= p <= 1.0, f"The probability should be in range [0, 1], but got {p}."
 
         self.p = p
@@ -1427,10 +1535,10 @@ class RandomFlip:
         self.flip_idx = flip_idx
 
     # BEGIN CUSTOM MODIFICATION BY [José Carlos Reyes Hernández] - [20/02/24]
-        # Reason for modification:
-        # This modification adjusts class labels for orientation-specific classes when a horizontal flip is applied
-        # to ensure the consistency of the training data. This is crucial for models that rely on the orientation
-        # of objects to make accurate predictions.
+    # Reason for modification:
+    # This modification adjusts class labels for orientation-specific classes when a horizontal flip is applied
+    # to ensure the consistency of the training data. This is crucial for models that rely on the orientation
+    # of objects to make accurate predictions.
 
     def __call__(self, labels):
         """
@@ -1439,7 +1547,7 @@ class RandomFlip:
         orientation-specific classes are correctly updated (e.g., left side view to right side view and vice versa).
 
         Args:
-            labels (dict): A dictionary containing keys 'img', 'cls', and 'instances'. 
+            labels (dict): A dictionary containing keys 'img', 'cls', and 'instances'.
                         'img' is the image to be flipped, 'cls' contains the class labels for each instance in the image,
                         and 'instances' is an object containing bounding boxes and, optionally, keypoints.
 
@@ -1459,7 +1567,7 @@ class RandomFlip:
         # Normalize height and width if instances are normalized.
         h = 1 if instances.normalized else h
         w = 1 if instances.normalized else w
-        
+
         # Flag to track if a horizontal flip has been applied.
         flipped_horizontally = False
 
@@ -1474,8 +1582,10 @@ class RandomFlip:
             flipped_horizontally = True
             # Adjust keypoints if necessary and provided.
             if self.flip_idx is not None and instances.keypoints is not None:
-                instances.keypoints = np.ascontiguousarray(instances.keypoints[:, self.flip_idx, :])
-        
+                instances.keypoints = np.ascontiguousarray(
+                    instances.keypoints[:, self.flip_idx, :]
+                )
+
         # Adjust the class labels if a horizontal flip has been applied.
         if flipped_horizontally:
             # Define the mapping for class adjustments on horizontal flip.
@@ -1519,7 +1629,15 @@ class LetterBox:
         >>> updated_instances = result["instances"]
     """
 
-    def __init__(self, new_shape=(640, 640), auto=False, scaleFill=False, scaleup=True, center=True, stride=32):
+    def __init__(
+        self,
+        new_shape=(640, 640),
+        auto=False,
+        scaleFill=False,
+        scaleup=True,
+        center=True,
+        stride=32,
+    ):
         """
         Initialize LetterBox object for resizing and padding images.
 
@@ -1596,7 +1714,10 @@ class LetterBox:
         elif self.scaleFill:  # stretch
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
-            ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
+            ratio = (
+                new_shape[1] / shape[1],
+                new_shape[0] / shape[0],
+            )  # width, height ratios
 
         if self.center:
             dw /= 2  # divide padding into 2 sides
@@ -1678,7 +1799,10 @@ class CopyPaste(BaseMixTransform):
     def __init__(self, dataset=None, pre_transform=None, p=0.5, mode="flip") -> None:
         """Initializes CopyPaste object with dataset, pre_transform, and probability of applying MixUp."""
         super().__init__(dataset=dataset, pre_transform=pre_transform, p=p)
-        assert mode in {"flip", "mixup"}, f"Expected `mode` to be `flip` or `mixup`, but got {mode}."
+        assert mode in {
+            "flip",
+            "mixup",
+        }, f"Expected `mode` to be `flip` or `mixup`, but got {mode}."
         self.mode = mode
 
     def get_indexes(self):
@@ -1731,7 +1855,9 @@ class CopyPaste(BaseMixTransform):
         if instances2 is None:
             instances2 = deepcopy(instances)
             instances2.fliplr(w)
-        ioa = bbox_ioa(instances2.bboxes, instances.bboxes)  # intersection over area, (N, M)
+        ioa = bbox_ioa(
+            instances2.bboxes, instances.bboxes
+        )  # intersection over area, (N, M)
         indexes = np.nonzero((ioa < 0.30).all(1))[0]  # (N, )
         n = len(indexes)
         sorted_idx = np.argsort(ioa.max(1)[indexes])
@@ -1739,7 +1865,13 @@ class CopyPaste(BaseMixTransform):
         for j in indexes[: round(self.p * n)]:
             cls = np.concatenate((cls, labels2.get("cls", cls)[[j]]), axis=0)
             instances = Instances.concatenate((instances, instances2[[j]]), axis=0)
-            cv2.drawContours(im_new, instances2.segments[[j]].astype(np.int32), -1, (1, 1, 1), cv2.FILLED)
+            cv2.drawContours(
+                im_new,
+                instances2.segments[[j]].astype(np.int32),
+                -1,
+                (1, 1, 1),
+                cv2.FILLED,
+            )
 
         result = labels2.get("img", cv2.flip(im, 1))  # augment segments
         i = im_new.astype(bool)
@@ -1873,13 +2005,25 @@ class Albumentations:
             ]
 
             # Compose transforms
-            self.contains_spatial = any(transform.__class__.__name__ in spatial_transforms for transform in T)
+            self.contains_spatial = any(
+                transform.__class__.__name__ in spatial_transforms for transform in T
+            )
             self.transform = (
-                A.Compose(T, bbox_params=A.BboxParams(format="yolo", label_fields=["class_labels"]))
+                A.Compose(
+                    T,
+                    bbox_params=A.BboxParams(
+                        format="yolo", label_fields=["class_labels"]
+                    ),
+                )
                 if self.contains_spatial
                 else A.Compose(T)
             )
-            LOGGER.info(prefix + ", ".join(f"{x}".replace("always_apply=False, ", "") for x in T if x.p))
+            LOGGER.info(
+                prefix
+                + ", ".join(
+                    f"{x}".replace("always_apply=False, ", "") for x in T if x.p
+                )
+            )
         except ImportError:  # package not installed, skip
             pass
         except Exception as e:
@@ -1927,7 +2071,9 @@ class Albumentations:
                 labels["instances"].normalize(*im.shape[:2][::-1])
                 bboxes = labels["instances"].bboxes
                 # TODO: add supports of segments and keypoints
-                new = self.transform(image=im, bboxes=bboxes, class_labels=cls)  # transformed
+                new = self.transform(
+                    image=im, bboxes=bboxes, class_labels=cls
+                )  # transformed
                 if len(new["class_labels"]) > 0:  # skip update if no bbox in new im
                     labels["img"] = new["image"]
                     labels["cls"] = np.array(new["class_labels"])
@@ -2067,12 +2213,16 @@ class Format:
                 masks = torch.from_numpy(masks)
             else:
                 masks = torch.zeros(
-                    1 if self.mask_overlap else nl, img.shape[0] // self.mask_ratio, img.shape[1] // self.mask_ratio
+                    1 if self.mask_overlap else nl,
+                    img.shape[0] // self.mask_ratio,
+                    img.shape[1] // self.mask_ratio,
                 )
             labels["masks"] = masks
         labels["img"] = self._format_img(img)
         labels["cls"] = torch.from_numpy(cls) if nl else torch.zeros(nl)
-        labels["bboxes"] = torch.from_numpy(instances.bboxes) if nl else torch.zeros((nl, 4))
+        labels["bboxes"] = (
+            torch.from_numpy(instances.bboxes) if nl else torch.zeros((nl, 4))
+        )
         if self.return_keypoint:
             labels["keypoints"] = torch.from_numpy(instances.keypoints)
             if self.normalize:
@@ -2080,7 +2230,9 @@ class Format:
                 labels["keypoints"][..., 1] /= h
         if self.return_obb:
             labels["bboxes"] = (
-                xyxyxyxy2xywhr(torch.from_numpy(instances.segments)) if len(instances.segments) else torch.zeros((0, 5))
+                xyxyxyxy2xywhr(torch.from_numpy(instances.segments))
+                if len(instances.segments)
+                else torch.zeros((0, 5))
             )
         # NOTE: need to normalize obb in xywhr format for width-height consistency
         if self.normalize:
@@ -2118,7 +2270,9 @@ class Format:
         if len(img.shape) < 3:
             img = np.expand_dims(img, -1)
         img = img.transpose(2, 0, 1)
-        img = np.ascontiguousarray(img[::-1] if random.uniform(0, 1) > self.bgr else img)
+        img = np.ascontiguousarray(
+            img[::-1] if random.uniform(0, 1) > self.bgr else img
+        )
         img = torch.from_numpy(img)
         return img
 
@@ -2145,12 +2299,16 @@ class Format:
         """
         segments = instances.segments
         if self.mask_overlap:
-            masks, sorted_idx = polygons2masks_overlap((h, w), segments, downsample_ratio=self.mask_ratio)
+            masks, sorted_idx = polygons2masks_overlap(
+                (h, w), segments, downsample_ratio=self.mask_ratio
+            )
             masks = masks[None]  # (640, 640) -> (1, 640, 640)
             instances = instances[sorted_idx]
             cls = cls[sorted_idx]
         else:
-            masks = polygons2masks((h, w), segments, color=1, downsample_ratio=self.mask_ratio)
+            masks = polygons2masks(
+                (h, w), segments, color=1, downsample_ratio=self.mask_ratio
+            )
 
         return masks, instances, cls
 
@@ -2256,7 +2414,10 @@ class RandomLoadText:
         if len(pos_labels) > self.max_samples:
             pos_labels = random.sample(pos_labels, k=self.max_samples)
 
-        neg_samples = min(min(num_classes, self.max_samples) - len(pos_labels), random.randint(*self.neg_samples))
+        neg_samples = min(
+            min(num_classes, self.max_samples) - len(pos_labels),
+            random.randint(*self.neg_samples),
+        )
         neg_labels = [i for i in range(num_classes) if i not in pos_labels]
         neg_labels = random.sample(neg_labels, k=neg_samples)
 
@@ -2332,7 +2493,9 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         pre_transform.append(
             CopyPaste(
                 dataset,
-                pre_transform=Compose([Mosaic(dataset, imgsz=imgsz, p=hyp.mosaic), affine]),
+                pre_transform=Compose(
+                    [Mosaic(dataset, imgsz=imgsz, p=hyp.mosaic), affine]
+                ),
                 p=hyp.copy_paste,
                 mode=hyp.copy_paste_mode,
             )
@@ -2342,9 +2505,13 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
         kpt_shape = dataset.data.get("kpt_shape", None)
         if len(flip_idx) == 0 and hyp.fliplr > 0.0:
             hyp.fliplr = 0.0
-            LOGGER.warning("WARNING ⚠️ No 'flip_idx' array defined in data.yaml, setting augmentation 'fliplr=0.0'")
+            LOGGER.warning(
+                "WARNING ⚠️ No 'flip_idx' array defined in data.yaml, setting augmentation 'fliplr=0.0'"
+            )
         elif flip_idx and (len(flip_idx) != kpt_shape[0]):
-            raise ValueError(f"data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}")
+            raise ValueError(
+                f"data.yaml flip_idx={flip_idx} length must be equal to kpt_shape[0]={kpt_shape[0]}"
+            )
 
     return Compose(
         [
@@ -2401,7 +2568,11 @@ def classify_transforms(
     # Aspect ratio is preserved, crops center within image, no borders are added, image is lost
     if scale_size[0] == scale_size[1]:
         # Simple case, use torchvision built-in Resize with the shortest edge mode (scalar size arg)
-        tfl = [T.Resize(scale_size[0], interpolation=getattr(T.InterpolationMode, interpolation))]
+        tfl = [
+            T.Resize(
+                scale_size[0], interpolation=getattr(T.InterpolationMode, interpolation)
+            )
+        ]
     else:
         # Resize the shortest edge to matching target dim for non-square target
         tfl = [T.Resize(scale_size)]
@@ -2465,11 +2636,15 @@ def classify_augmentations(
     import torchvision.transforms as T  # scope for faster 'import ultralytics'
 
     if not isinstance(size, int):
-        raise TypeError(f"classify_transforms() size {size} must be integer, not (list, tuple)")
+        raise TypeError(
+            f"classify_transforms() size {size} must be integer, not (list, tuple)"
+        )
     scale = tuple(scale or (0.08, 1.0))  # default imagenet scale range
     ratio = tuple(ratio or (3.0 / 4.0, 4.0 / 3.0))  # default imagenet ratio range
     interpolation = getattr(T.InterpolationMode, interpolation)
-    primary_tfl = [T.RandomResizedCrop(size, scale=scale, ratio=ratio, interpolation=interpolation)]
+    primary_tfl = [
+        T.RandomResizedCrop(size, scale=scale, ratio=ratio, interpolation=interpolation)
+    ]
     if hflip > 0.0:
         primary_tfl.append(T.RandomHorizontalFlip(p=hflip))
     if vflip > 0.0:
@@ -2478,7 +2653,9 @@ def classify_augmentations(
     secondary_tfl = []
     disable_color_jitter = False
     if auto_augment:
-        assert isinstance(auto_augment, str), f"Provided argument should be string, but got type {type(auto_augment)}"
+        assert isinstance(
+            auto_augment, str
+        ), f"Provided argument should be string, but got type {type(auto_augment)}"
         # color jitter is typically disabled if AA/RA on,
         # this allows override without breaking old hparm cfgs
         disable_color_jitter = not force_color_jitter
@@ -2487,19 +2664,25 @@ def classify_augmentations(
             if TORCHVISION_0_11:
                 secondary_tfl.append(T.RandAugment(interpolation=interpolation))
             else:
-                LOGGER.warning('"auto_augment=randaugment" requires torchvision >= 0.11.0. Disabling it.')
+                LOGGER.warning(
+                    '"auto_augment=randaugment" requires torchvision >= 0.11.0. Disabling it.'
+                )
 
         elif auto_augment == "augmix":
             if TORCHVISION_0_13:
                 secondary_tfl.append(T.AugMix(interpolation=interpolation))
             else:
-                LOGGER.warning('"auto_augment=augmix" requires torchvision >= 0.13.0. Disabling it.')
+                LOGGER.warning(
+                    '"auto_augment=augmix" requires torchvision >= 0.13.0. Disabling it.'
+                )
 
         elif auto_augment == "autoaugment":
             if TORCHVISION_0_10:
                 secondary_tfl.append(T.AutoAugment(interpolation=interpolation))
             else:
-                LOGGER.warning('"auto_augment=autoaugment" requires torchvision >= 0.10.0. Disabling it.')
+                LOGGER.warning(
+                    '"auto_augment=autoaugment" requires torchvision >= 0.10.0. Disabling it.'
+                )
 
         else:
             raise ValueError(
@@ -2508,7 +2691,9 @@ def classify_augmentations(
             )
 
     if not disable_color_jitter:
-        secondary_tfl.append(T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h))
+        secondary_tfl.append(
+            T.ColorJitter(brightness=hsv_v, contrast=hsv_v, saturation=hsv_s, hue=hsv_h)
+        )
 
     final_tfl = [
         T.ToTensor(),
@@ -2601,12 +2786,18 @@ class ClassifyLetterBox:
         h, w = round(imh * r), round(imw * r)  # resized image dimensions
 
         # Calculate padding dimensions
-        hs, ws = (math.ceil(x / self.stride) * self.stride for x in (h, w)) if self.auto else (self.h, self.w)
+        hs, ws = (
+            (math.ceil(x / self.stride) * self.stride for x in (h, w))
+            if self.auto
+            else (self.h, self.w)
+        )
         top, left = round((hs - h) / 2 - 0.1), round((ws - w) / 2 - 0.1)
 
         # Create padded image
         im_out = np.full((hs, ws, 3), 114, dtype=im.dtype)
-        im_out[top : top + h, left : left + w] = cv2.resize(im, (w, h), interpolation=cv2.INTER_LINEAR)
+        im_out[top : top + h, left : left + w] = cv2.resize(
+            im, (w, h), interpolation=cv2.INTER_LINEAR
+        )
         return im_out
 
 
@@ -2682,7 +2873,11 @@ class CenterCrop:
         imh, imw = im.shape[:2]
         m = min(imh, imw)  # min dimension
         top, left = (imh - m) // 2, (imw - m) // 2
-        return cv2.resize(im[top : top + m, left : left + m], (self.w, self.h), interpolation=cv2.INTER_LINEAR)
+        return cv2.resize(
+            im[top : top + m, left : left + m],
+            (self.w, self.h),
+            interpolation=cv2.INTER_LINEAR,
+        )
 
 
 # NOTE: keep this class for backward compatibility
@@ -2753,7 +2948,9 @@ class ToTensor:
             >>> print(tensor_img.shape, tensor_img.dtype)
             torch.Size([3, 640, 640]) torch.float16
         """
-        im = np.ascontiguousarray(im.transpose((2, 0, 1))[::-1])  # HWC to CHW -> BGR to RGB -> contiguous
+        im = np.ascontiguousarray(
+            im.transpose((2, 0, 1))[::-1]
+        )  # HWC to CHW -> BGR to RGB -> contiguous
         im = torch.from_numpy(im)  # to torch
         im = im.half() if self.half else im.float()  # uint8 to fp16/32
         im /= 255.0  # 0-255 to 0.0-1.0

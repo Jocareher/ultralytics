@@ -6,6 +6,7 @@ from ultralytics import SAM, YOLO
 
 
 def auto_annotate(
+<<<<<<< HEAD
     data,
     det_model="yolo11x.pt",
     sam_model="sam_b.pt",
@@ -16,6 +17,9 @@ def auto_annotate(
     max_det=300,
     classes=None,
     output_dir=None,
+=======
+    data, det_model="yolov8x.pt", sam_model="sam_b.pt", device="", output_dir=None
+>>>>>>> features
 ):
     """
     Automatically annotates images using a YOLO object detection model and a SAM segmentation model.
@@ -60,7 +64,9 @@ def auto_annotate(
         class_ids = result.boxes.cls.int().tolist()  # noqa
         if len(class_ids):
             boxes = result.boxes.xyxy  # Boxes object for bbox outputs
-            sam_results = sam_model(result.orig_img, bboxes=boxes, verbose=False, save=False, device=device)
+            sam_results = sam_model(
+                result.orig_img, bboxes=boxes, verbose=False, save=False, device=device
+            )
             segments = sam_results[0].masks.xyn  # noqa
 
             with open(f"{Path(output_dir) / Path(result.path).stem}.txt", "w") as f:

@@ -26,7 +26,9 @@ class ClassificationValidator(BaseValidator):
         ```
     """
 
-    def __init__(self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None):
+    def __init__(
+        self, dataloader=None, save_dir=None, pbar=None, args=None, _callbacks=None
+    ):
         """Initializes ClassificationValidator instance with args, dataloader, save_dir, and progress bar."""
         super().__init__(dataloader, save_dir, pbar, args, _callbacks)
         self.targets = None
@@ -42,7 +44,9 @@ class ClassificationValidator(BaseValidator):
         """Initialize confusion matrix, class names, and top-1 and top-5 accuracy."""
         self.names = model.names
         self.nc = len(model.names)
-        self.confusion_matrix = ConfusionMatrix(nc=self.nc, conf=self.args.conf, task="classify")
+        self.confusion_matrix = ConfusionMatrix(
+            nc=self.nc, conf=self.args.conf, task="classify"
+        )
         self.pred = []
         self.targets = []
 
@@ -56,7 +60,9 @@ class ClassificationValidator(BaseValidator):
     def update_metrics(self, preds, batch):
         """Updates running metrics with model predictions and batch targets."""
         n5 = min(len(self.names), 5)
-        self.pred.append(preds.argsort(1, descending=True)[:, :n5].type(torch.int32).cpu())
+        self.pred.append(
+            preds.argsort(1, descending=True)[:, :n5].type(torch.int32).cpu()
+        )
         self.targets.append(batch["cls"].type(torch.int32).cpu())
 
     def finalize_metrics(self, *args, **kwargs):
@@ -65,7 +71,10 @@ class ClassificationValidator(BaseValidator):
         if self.args.plots:
             for normalize in True, False:
                 self.confusion_matrix.plot(
-                    save_dir=self.save_dir, names=self.names.values(), normalize=normalize, on_plot=self.on_plot
+                    save_dir=self.save_dir,
+                    names=self.names.values(),
+                    normalize=normalize,
+                    on_plot=self.on_plot,
                 )
         self.metrics.speed = self.speed
         self.metrics.confusion_matrix = self.confusion_matrix
@@ -78,7 +87,9 @@ class ClassificationValidator(BaseValidator):
 
     def build_dataset(self, img_path):
         """Creates and returns a ClassificationDataset instance using given image path and preprocessing parameters."""
-        return ClassificationDataset(root=img_path, args=self.args, augment=False, prefix=self.args.split)
+        return ClassificationDataset(
+            root=img_path, args=self.args, augment=False, prefix=self.args.split
+        )
 
     def get_dataloader(self, dataset_path, batch_size):
         """Builds and returns a data loader for classification tasks with given parameters."""
@@ -95,7 +106,9 @@ class ClassificationValidator(BaseValidator):
         plot_images(
             images=batch["img"],
             batch_idx=torch.arange(len(batch["img"])),
-            cls=batch["cls"].view(-1),  # warning: use .view(), not .squeeze() for Classify models
+            cls=batch["cls"].view(
+                -1
+            ),  # warning: use .view(), not .squeeze() for Classify models
             fname=self.save_dir / f"val_batch{ni}_labels.jpg",
             names=self.names,
             on_plot=self.on_plot,

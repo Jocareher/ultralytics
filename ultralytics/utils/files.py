@@ -138,7 +138,9 @@ def increment_path(path, exist_ok=False, sep="", mkdir=False):
     """
     path = Path(path)  # os-agnostic
     if path.exists() and not exist_ok:
-        path, suffix = (path.with_suffix(""), path.suffix) if path.is_file() else (path, "")
+        path, suffix = (
+            (path.with_suffix(""), path.suffix) if path.is_file() else (path, "")
+        )
 
         # Method 1
         for n in range(2, 9999):
@@ -183,7 +185,9 @@ def get_latest_run(search_dir="."):
     return max(last_list, key=os.path.getctime) if last_list else ""
 
 
-def update_models(model_names=("yolo11n.pt",), source_dir=Path("."), update_names=False):
+def update_models(
+    model_names=("yolo11n.pt",), source_dir=Path("."), update_names=False
+):
     """
     Updates and re-saves specified YOLO models in an 'updated_models' subdirectory.
 

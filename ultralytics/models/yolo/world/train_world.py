@@ -55,11 +55,29 @@ class WorldTrainerFromScratch(WorldTrainer):
         """
         gs = max(int(de_parallel(self.model).stride.max() if self.model else 0), 32)
         if mode != "train":
-            return build_yolo_dataset(self.args, img_path, batch, self.data, mode=mode, rect=mode == "val", stride=gs)
+            return build_yolo_dataset(
+                self.args,
+                img_path,
+                batch,
+                self.data,
+                mode=mode,
+                rect=mode == "val",
+                stride=gs,
+            )
         dataset = [
-            build_yolo_dataset(self.args, im_path, batch, self.data, stride=gs, multi_modal=True)
-            if isinstance(im_path, str)
-            else build_grounding(self.args, im_path["img_path"], im_path["json_file"], batch, stride=gs)
+            (
+                build_yolo_dataset(
+                    self.args, im_path, batch, self.data, stride=gs, multi_modal=True
+                )
+                if isinstance(im_path, str)
+                else build_grounding(
+                    self.args,
+                    im_path["img_path"],
+                    im_path["json_file"],
+                    batch,
+                    stride=gs,
+                )
+            )
             for im_path in img_path
         ]
         return YOLOConcatDataset(dataset) if len(dataset) > 1 else dataset[0]
@@ -72,10 +90,17 @@ class WorldTrainerFromScratch(WorldTrainer):
         """
         final_data = {}
         data_yaml = self.args.data
-        assert data_yaml.get("train", False), "train dataset not found"  # object365.yaml
+        assert data_yaml.get(
+            "train", False
+        ), "train dataset not found"  # object365.yaml
         assert data_yaml.get("val", False), "validation dataset not found"  # lvis.yaml
-        data = {k: [check_det_dataset(d) for d in v.get("yolo_data", [])] for k, v in data_yaml.items()}
-        assert len(data["val"]) == 1, f"Only support validating on 1 dataset for now, but got {len(data['val'])}."
+        data = {
+            k: [check_det_dataset(d) for d in v.get("yolo_data", [])]
+            for k, v in data_yaml.items()
+        }
+        assert (
+            len(data["val"]) == 1
+        ), f"Only support validating on 1 dataset for now, but got {len(data['val'])}."
         val_split = "minival" if "lvis" in data["val"][0]["val"] else "val"
         for d in data["val"]:
             if d.get("minival") is None:  # for lvis dataset
@@ -87,9 +112,13 @@ class WorldTrainerFromScratch(WorldTrainer):
             grounding_data = data_yaml[s].get("grounding_data")
             if grounding_data is None:
                 continue
-            grounding_data = grounding_data if isinstance(grounding_data, list) else [grounding_data]
+            grounding_data = (
+                grounding_data if isinstance(grounding_data, list) else [grounding_data]
+            )
             for g in grounding_data:
-                assert isinstance(g, dict), f"Grounding data should be provided in dict format, but got {type(g)}"
+                assert isinstance(
+                    g, dict
+                ), f"Grounding data should be provided in dict format, but got {type(g)}"
             final_data[s] += grounding_data
         # NOTE: to make training work properly, set `nc` and `names`
         final_data["nc"] = data["val"][0]["nc"]
@@ -105,5 +134,7 @@ class WorldTrainerFromScratch(WorldTrainer):
         """Performs final evaluation and validation for object detection YOLO-World model."""
         val = self.args.data["val"]["yolo_data"][0]
         self.validator.args.data = val
-        self.validator.args.split = "minival" if isinstance(val, str) and "lvis" in val else "val"
+        self.validator.args.split = (
+            "minival" if isinstance(val, str) and "lvis" in val else "val"
+        )
         return super().final_eval()

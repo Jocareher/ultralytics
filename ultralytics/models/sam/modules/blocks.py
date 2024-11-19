@@ -13,7 +13,13 @@ from torch import Tensor, nn
 from ultralytics.nn.modules import MLP, LayerNorm2d, MLPBlock
 
 from .transformer import Attention, TwoWayAttentionBlock, TwoWayTransformer
-from .utils import add_decomposed_rel_pos, apply_rotary_enc, compute_axial_cis, window_partition, window_unpartition
+from .utils import (
+    add_decomposed_rel_pos,
+    apply_rotary_enc,
+    compute_axial_cis,
+    window_partition,
+    window_unpartition,
+)
 
 
 class DropPath(nn.Module):
@@ -178,7 +184,9 @@ class CXBlock(nn.Module):
             groups=dim if use_dwconv else 1,
         )  # depthwise conv
         self.norm = LayerNorm2d(dim, eps=1e-6)
-        self.pwconv1 = nn.Linear(dim, 4 * dim)  # pointwise/1x1 convs, implemented with linear layers
+        self.pwconv1 = nn.Linear(
+            dim, 4 * dim
+        )  # pointwise/1x1 convs, implemented with linear layers
         self.act = nn.GELU()
         self.pwconv2 = nn.Linear(4 * dim, dim)
         self.gamma = (
@@ -320,8 +328,17 @@ class SAM2TwoWayAttentionBlock(TwoWayAttentionBlock):
             >>> dense_inputs = torch.randn(1, 256, 32, 32)
             >>> sparse_outputs, dense_outputs = block(sparse_inputs, dense_inputs)
         """
-        super().__init__(embedding_dim, num_heads, mlp_dim, activation, attention_downsample_rate, skip_first_layer_pe)
-        self.mlp = MLP(embedding_dim, mlp_dim, embedding_dim, num_layers=2, act=activation)
+        super().__init__(
+            embedding_dim,
+            num_heads,
+            mlp_dim,
+            activation,
+            attention_downsample_rate,
+            skip_first_layer_pe,
+        )
+        self.mlp = MLP(
+            embedding_dim, mlp_dim, embedding_dim, num_layers=2, act=activation
+        )
 
 
 class SAM2TwoWayTransformer(TwoWayTransformer):
@@ -387,7 +404,14 @@ class SAM2TwoWayTransformer(TwoWayTransformer):
               (norm_final_attn): LayerNorm(...)
             )
         """
-        super().__init__(depth, embedding_dim, num_heads, mlp_dim, activation, attention_downsample_rate)
+        super().__init__(
+            depth,
+            embedding_dim,
+            num_heads,
+            mlp_dim,
+            activation,
+            attention_downsample_rate,
+        )
         self.layers = nn.ModuleList()
         for i in range(depth):
             self.layers.append(
@@ -438,12 +462,16 @@ class RoPEAttention(Attention):
         """Initializes RoPEAttention with rotary position encoding for enhanced positional awareness."""
         super().__init__(*args, **kwargs)
 
-        self.compute_cis = partial(compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta)
+        self.compute_cis = partial(
+            compute_axial_cis, dim=self.internal_dim // self.num_heads, theta=rope_theta
+        )
         freqs_cis = self.compute_cis(end_x=feat_sizes[0], end_y=feat_sizes[1])
         self.freqs_cis = freqs_cis
         self.rope_k_repeat = rope_k_repeat  # repeat q rope to match k length, needed for cross-attention to memories
 
-    def forward(self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: int = 0) -> Tensor:
+    def forward(
+        self, q: Tensor, k: Tensor, v: Tensor, num_k_exclude_rope: int = 0
+    ) -> Tensor:
         """Applies rotary position encoding and computes attention between query, key, and value tensors."""
         q = self.q_proj(q)
         k = self.k_proj(k)
@@ -637,7 +665,9 @@ class MultiScaleBlock(nn.Module):
 
         self.pool, self.q_stride = None, q_stride
         if self.q_stride:
-            self.pool = nn.MaxPool2d(kernel_size=q_stride, stride=q_stride, ceil_mode=False)
+            self.pool = nn.MaxPool2d(
+                kernel_size=q_stride, stride=q_stride, ceil_mode=False
+            )
 
         self.attn = MultiScaleAttention(
             dim,
@@ -755,8 +785,12 @@ class PositionEmbeddingSine(nn.Module):
 
         pos_x = x_embed[:, None] / dim_t
         pos_y = y_embed[:, None] / dim_t
-        pos_x = torch.stack((pos_x[:, 0::2].sin(), pos_x[:, 1::2].cos()), dim=2).flatten(1)
-        pos_y = torch.stack((pos_y[:, 0::2].sin(), pos_y[:, 1::2].cos()), dim=2).flatten(1)
+        pos_x = torch.stack(
+            (pos_x[:, 0::2].sin(), pos_x[:, 1::2].cos()), dim=2
+        ).flatten(1)
+        pos_y = torch.stack(
+            (pos_y[:, 0::2].sin(), pos_y[:, 1::2].cos()), dim=2
+        ).flatten(1)
         return pos_x, pos_y
 
     @torch.no_grad()
@@ -803,8 +837,12 @@ class PositionEmbeddingSine(nn.Module):
 
         pos_x = x_embed[:, :, :, None] / dim_t
         pos_y = y_embed[:, :, :, None] / dim_t
-        pos_x = torch.stack((pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4).flatten(3)
-        pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
+        pos_x = torch.stack(
+            (pos_x[:, :, :, 0::2].sin(), pos_x[:, :, :, 1::2].cos()), dim=4
+        ).flatten(3)
+        pos_y = torch.stack(
+            (pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4
+        ).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         self.cache[cache_key] = pos[0]
         return pos
@@ -838,7 +876,10 @@ class PositionEmbeddingRandom(nn.Module):
         super().__init__()
         if scale is None or scale <= 0.0:
             scale = 1.0
-        self.register_buffer("positional_encoding_gaussian_matrix", scale * torch.randn((2, num_pos_feats)))
+        self.register_buffer(
+            "positional_encoding_gaussian_matrix",
+            scale * torch.randn((2, num_pos_feats)),
+        )
 
         # Set non-deterministic for forward() error 'cumsum_cuda_kernel does not have a deterministic implementation'
         torch.use_deterministic_algorithms(False)
@@ -866,7 +907,9 @@ class PositionEmbeddingRandom(nn.Module):
         pe = self._pe_encoding(torch.stack([x_embed, y_embed], dim=-1))
         return pe.permute(2, 0, 1)  # C x H x W
 
-    def forward_with_coords(self, coords_input: torch.Tensor, image_size: Tuple[int, int]) -> torch.Tensor:
+    def forward_with_coords(
+        self, coords_input: torch.Tensor, image_size: Tuple[int, int]
+    ) -> torch.Tensor:
         """Positionally encodes input coordinates, normalizing them to [0,1] based on the given image size."""
         coords = coords_input.clone()
         coords[:, :, 0] = coords[:, :, 0] / image_size[1]
@@ -952,7 +995,9 @@ class Block(nn.Module):
         )
 
         self.norm2 = norm_layer(dim)
-        self.mlp = MLPBlock(embedding_dim=dim, mlp_dim=int(dim * mlp_ratio), act=act_layer)
+        self.mlp = MLPBlock(
+            embedding_dim=dim, mlp_dim=int(dim * mlp_ratio), act=act_layer
+        )
 
         self.window_size = window_size
 
@@ -1047,7 +1092,9 @@ class REAttention(nn.Module):
 
         self.use_rel_pos = use_rel_pos
         if self.use_rel_pos:
-            assert input_size is not None, "Input size must be provided if using relative positional encoding."
+            assert (
+                input_size is not None
+            ), "Input size must be provided if using relative positional encoding."
             # Initialize relative positional embeddings
             self.rel_pos_h = nn.Parameter(torch.zeros(2 * input_size[0] - 1, head_dim))
             self.rel_pos_w = nn.Parameter(torch.zeros(2 * input_size[1] - 1, head_dim))
@@ -1056,17 +1103,26 @@ class REAttention(nn.Module):
         """Applies multi-head attention with optional relative positional encoding to input tensor."""
         B, H, W, _ = x.shape
         # qkv with shape (3, B, nHead, H * W, C)
-        qkv = self.qkv(x).reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x).reshape(B, H * W, 3, self.num_heads, -1).permute(2, 0, 3, 1, 4)
+        )
         # q, k, v with shape (B * nHead, H * W, C)
         q, k, v = qkv.reshape(3, B * self.num_heads, H * W, -1).unbind(0)
 
         attn = (q * self.scale) @ k.transpose(-2, -1)
 
         if self.use_rel_pos:
-            attn = add_decomposed_rel_pos(attn, q, self.rel_pos_h, self.rel_pos_w, (H, W), (H, W))
+            attn = add_decomposed_rel_pos(
+                attn, q, self.rel_pos_h, self.rel_pos_w, (H, W), (H, W)
+            )
 
         attn = attn.softmax(dim=-1)
-        x = (attn @ v).view(B, self.num_heads, H, W, -1).permute(0, 2, 3, 1, 4).reshape(B, H, W, -1)
+        x = (
+            (attn @ v)
+            .view(B, self.num_heads, H, W, -1)
+            .permute(0, 2, 3, 1, 4)
+            .reshape(B, H, W, -1)
+        )
         return self.proj(x)
 
 
@@ -1122,7 +1178,9 @@ class PatchEmbed(nn.Module):
         """
         super().__init__()
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Computes patch embedding by applying convolution and transposing resulting tensor."""

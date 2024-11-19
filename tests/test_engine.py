@@ -27,7 +27,13 @@ def test_export():
 
 def test_detect():
     """Test YOLO object detection training, validation, and prediction functionality."""
-    overrides = {"data": "coco8.yaml", "model": "yolo11n.yaml", "imgsz": 32, "epochs": 1, "save": False}
+    overrides = {
+        "data": "coco8.yaml",
+        "model": "yolo11n.yaml",
+        "imgsz": 32,
+        "epochs": 1,
+        "save": False,
+    }
     cfg = get_cfg(DEFAULT_CFG)
     cfg.data = "coco8.yaml"
     cfg.imgsz = 32
@@ -66,7 +72,13 @@ def test_detect():
 
 def test_segment():
     """Tests image segmentation training, validation, and prediction pipelines using YOLO models."""
-    overrides = {"data": "coco8-seg.yaml", "model": "yolo11n-seg.yaml", "imgsz": 32, "epochs": 1, "save": False}
+    overrides = {
+        "data": "coco8-seg.yaml",
+        "model": "yolo11n-seg.yaml",
+        "imgsz": 32,
+        "epochs": 1,
+        "save": False,
+    }
     cfg = get_cfg(DEFAULT_CFG)
     cfg.data = "coco8-seg.yaml"
     cfg.imgsz = 32
@@ -105,7 +117,13 @@ def test_segment():
 
 def test_classify():
     """Test image classification including training, validation, and prediction phases."""
-    overrides = {"data": "imagenet10", "model": "yolo11n-cls.yaml", "imgsz": 32, "epochs": 1, "save": False}
+    overrides = {
+        "data": "imagenet10",
+        "model": "yolo11n-cls.yaml",
+        "imgsz": 32,
+        "epochs": 1,
+        "save": False,
+    }
     cfg = get_cfg(DEFAULT_CFG)
     cfg.data = "imagenet10"
     cfg.imgsz = 32

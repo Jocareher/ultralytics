@@ -44,7 +44,9 @@ def bbox_iof(polygon1, bbox2, eps=1e-6):
     h_overlaps = wh[..., 0] * wh[..., 1]
 
     left, top, right, bottom = (bbox2[..., i] for i in range(4))
-    polygon2 = np.stack([left, top, right, top, right, bottom, left, bottom], axis=-1).reshape(-1, 4, 2)
+    polygon2 = np.stack(
+        [left, top, right, top, right, bottom, left, bottom], axis=-1
+    ).reshape(-1, 4, 2)
 
     sg_polys1 = [Polygon(p) for p in polygon1]
     sg_polys2 = [Polygon(p) for p in polygon2]
@@ -129,7 +131,9 @@ def get_windows(im_size, crop_sizes=(1024,), gaps=(200,), im_rate_thr=0.6, eps=0
     im_in_wins = windows.copy()
     im_in_wins[:, 0::2] = np.clip(im_in_wins[:, 0::2], 0, w)
     im_in_wins[:, 1::2] = np.clip(im_in_wins[:, 1::2], 0, h)
-    im_areas = (im_in_wins[:, 2] - im_in_wins[:, 0]) * (im_in_wins[:, 3] - im_in_wins[:, 1])
+    im_areas = (im_in_wins[:, 2] - im_in_wins[:, 0]) * (
+        im_in_wins[:, 3] - im_in_wins[:, 1]
+    )
     win_areas = (windows[:, 2] - windows[:, 0]) * (windows[:, 3] - windows[:, 1])
     im_rates = im_areas / win_areas
     if not (im_rates > im_rate_thr).any():
@@ -147,12 +151,18 @@ def get_window_obj(anno, windows, iof_thr=0.7):
         label[:, 2::2] *= h
         iofs = bbox_iof(label[:, 1:], windows)
         # Unnormalized and misaligned coordinates
-        return [(label[iofs[:, i] >= iof_thr]) for i in range(len(windows))]  # window_anns
+        return [
+            (label[iofs[:, i] >= iof_thr]) for i in range(len(windows))
+        ]  # window_anns
     else:
-        return [np.zeros((0, 9), dtype=np.float32) for _ in range(len(windows))]  # window_anns
+        return [
+            np.zeros((0, 9), dtype=np.float32) for _ in range(len(windows))
+        ]  # window_anns
 
 
-def crop_and_save(anno, windows, window_objs, im_dir, lb_dir, allow_background_images=True):
+def crop_and_save(
+    anno, windows, window_objs, im_dir, lb_dir, allow_background_images=True
+):
     """
     Crop images and save new labels.
 
@@ -197,7 +207,9 @@ def crop_and_save(anno, windows, window_objs, im_dir, lb_dir, allow_background_i
                     f.write(f"{int(lb[0])} {' '.join(formatted_coords)}\n")
 
 
-def split_images_and_labels(data_root, save_dir, split="train", crop_sizes=(1024,), gaps=(200,)):
+def split_images_and_labels(
+    data_root, save_dir, split="train", crop_sizes=(1024,), gaps=(200,)
+):
     """
     Split both images and labels.
 
