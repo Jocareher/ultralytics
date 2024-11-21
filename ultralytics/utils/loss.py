@@ -790,12 +790,10 @@ class v8PoseLoss(v8DetectionLoss):
                     pred_kpt, gt_kpt, kpt_mask, area, visibility_flags
                 )
                 # Calculate pos_weight dynamically
-                num_visible = (visibility_flags == 2).float().sum()
-                # print(num_visible)
-                num_occluded = (visibility_flags == 1).float().sum()
-                # print(num_occluded)
+                num_visible = (visibility_flags == 2).float().sum(dim=1)
+                num_occluded = (visibility_flags == 1).float().sum(dim=1)
                 pos_weight_value = num_visible / (num_occluded + 1e-9)
-                pos_weight = torch.tensor([pos_weight_value], device=self.device)
+                pos_weight = pos_weight_value.unsqueeze(-1)
 
                 # Keypoint object loss (binary classification between occluded and visible)
                 # Use raw logits for pred_kpt[..., 2], and target labels as (visibility_flags == 2).float()
