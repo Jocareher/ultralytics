@@ -607,7 +607,9 @@ class Results(SimpleClass):
                             else (
                                 id
                                 if id is not None
-                                else i if color_mode == "instance" else None
+                                else i
+                                if color_mode == "instance"
+                                else None
                             )
                         ),
                         True,

@@ -185,9 +185,9 @@ class Exporter:
             "coreml",
             "mlmodel",
         }:  # fix attempt for protobuf<3.20.x errors
-            os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = (
-                "python"  # must run before TensorBoard callback
-            )
+            os.environ[
+                "PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"
+            ] = "python"  # must run before TensorBoard callback
 
         self.callbacks = _callbacks or callbacks.get_default_callbacks()
         callbacks.add_integration_callbacks(self)
@@ -729,7 +729,11 @@ class Exporter:
             system = (
                 "macos"
                 if MACOS
-                else "windows" if WINDOWS else "linux-aarch64" if ARM64 else "linux"
+                else "windows"
+                if WINDOWS
+                else "linux-aarch64"
+                if ARM64
+                else "linux"
             )
             try:
                 release, assets = get_github_assets(repo="pnnx/pnnx")
@@ -854,7 +858,9 @@ class Exporter:
         bits, mode = (
             (8, "kmeans")
             if self.args.int8
-            else (16, "linear") if self.args.half else (32, None)
+            else (16, "linear")
+            if self.args.half
+            else (32, None)
         )
         if bits < 32:
             if "kmeans" in mode:
@@ -1307,7 +1313,9 @@ class Exporter:
         quantization = (
             "--quantize_float16"
             if self.args.half
-            else "--quantize_uint8" if self.args.int8 else ""
+            else "--quantize_uint8"
+            if self.args.int8
+            else ""
         )
         with spaces_in_path(f_pb) as fpb_, spaces_in_path(
             f
@@ -1515,18 +1523,18 @@ class Exporter:
         # Save the model
         model = ct.models.MLModel(pipeline.spec, weights_dir=weights_dir)
         model.input_description["image"] = "Input image"
-        model.input_description["iouThreshold"] = (
-            f"(optional) IoU threshold override (default: {nms.iouThreshold})"
-        )
-        model.input_description["confidenceThreshold"] = (
-            f"(optional) Confidence threshold override (default: {nms.confidenceThreshold})"
-        )
-        model.output_description["confidence"] = (
-            'Boxes × Class confidence (see user-defined metadata "classes")'
-        )
-        model.output_description["coordinates"] = (
-            "Boxes × [x, y, width, height] (relative to image size)"
-        )
+        model.input_description[
+            "iouThreshold"
+        ] = f"(optional) IoU threshold override (default: {nms.iouThreshold})"
+        model.input_description[
+            "confidenceThreshold"
+        ] = f"(optional) Confidence threshold override (default: {nms.confidenceThreshold})"
+        model.output_description[
+            "confidence"
+        ] = 'Boxes × Class confidence (see user-defined metadata "classes")'
+        model.output_description[
+            "coordinates"
+        ] = "Boxes × [x, y, width, height] (relative to image size)"
         LOGGER.info(f"{prefix} pipeline success")
         return model
 

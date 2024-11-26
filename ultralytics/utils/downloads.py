@@ -433,7 +433,9 @@ def safe_download(
                     raise ConnectionError(
                         emojis(f"❌  Download failure for {uri}. Retry limit reached.")
                     ) from e
-                LOGGER.warning(f"⚠️ Download failure, retrying {i + 1}/{retry} {uri}...")
+                LOGGER.warning(
+                    f"⚠️ Download failure, retrying {i + 1}/{retry} {uri}..."
+                )
 
     if unzip and f.exists() and f.suffix in {"", ".zip", ".tar", ".gz"}:
         from zipfile import is_zipfile

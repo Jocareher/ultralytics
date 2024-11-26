@@ -301,17 +301,17 @@ def get_cdn_group(
                 max_nums * 2 * (i + 1) : num_dn,
             ] = True
         if i == num_group - 1:
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * i * 2] = (
-                True
-            )
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * i * 2
+            ] = True
         else:
             attn_mask[
                 max_nums * 2 * i : max_nums * 2 * (i + 1),
                 max_nums * 2 * (i + 1) : num_dn,
             ] = True
-            attn_mask[max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * 2 * i] = (
-                True
-            )
+            attn_mask[
+                max_nums * 2 * i : max_nums * 2 * (i + 1), : max_nums * 2 * i
+            ] = True
     dn_meta = {
         "dn_pos_idx": [
             p.reshape(-1) for p in pos_idx.cpu().split(list(gt_groups), dim=1)
