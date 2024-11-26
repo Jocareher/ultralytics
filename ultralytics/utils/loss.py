@@ -790,8 +790,8 @@ class v8PoseLoss(v8DetectionLoss):
                     pred_kpt, gt_kpt, kpt_mask, area, visibility_flags
                 )
                 # Calculate pos_weight dynamically
-                num_visible = (visibility_flags == 2).float()
-                num_occluded = (visibility_flags == 1).float()
+                num_visible = (visibility_flags == 2).float().sum()
+                num_occluded = (visibility_flags == 1).float().sum()
                 pos_weight_value = num_visible / (num_occluded + 1e-9)
                 pos_weight = torch.tensor([pos_weight_value], device=self.device)
 
