@@ -5,7 +5,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA, OKS_SIGMA_72_LMKS
-from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh, xyxyxyxy2xywhr, xywhr2xyxyxyxy
+from ultralytics.utils.ops import (
+    crop_mask,
+    xywh2xyxy,
+    xyxy2xywh,
+    xyxyxyxy2xywhr,
+    xywhr2xyxyxyxy,
+)
 from ultralytics.utils.tal import (
     RotatedTaskAlignedAssigner,
     TaskAlignedAssigner,
@@ -814,6 +820,68 @@ class v8PoseLoss(v8DetectionLoss):
                 kpts_obj_loss = 0
 
         return kpts_loss, kpts_obj_loss
+    
+
+class RotationLoss(nn.Module):
+    """
+    Computes the rotation (angle) loss for oriented bounding boxes.
+    
+    The loss is defined as:
+    
+        L_rotation = 1 - cos(theta_pred - theta_gt)
+    
+    which is robust to the periodicity of angles.
+    
+    Inputs:
+      - pred_bboxes: Tensor of shape (B, N, 5) in xywhr format (last element is the angle, in radians)
+      - gt_bboxes: Tensor of shape (B, N, 5) in xywhr format (last element is the ground-truth angle)
+      - fg_mask: Boolean Tensor of shape (B, N) indicating positive anchors
+    
+    Returns:
+      A scalar Tensor representing the mean rotation loss over positive anchors.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_bboxes, gt_bboxes, fg_mask):
+        # Extract angles from the last element of each box.
+        pred_angle = pred_bboxes[..., 4]  # shape: (B, N)
+        gt_angle   = gt_bboxes[..., 4]      # shape: (B, N)
+        # Compute the cosine-based loss:
+        loss = (1 - torch.cos(pred_angle - gt_angle))[fg_mask].mean()
+        return loss
+
+class VertexLoss(nn.Module):
+    """
+    Computes the vertex (points) loss for oriented bounding boxes.
+    
+    This loss first converts the predicted and ground-truth boxes (in xywhr format)
+    into 4 vertices using the provided function xywhr2xyxyxyxy, then computes an L1 loss:
+    
+        L_vertex = mean_{positive anchors}[ L1(pred_vertices - gt_vertices) ]
+    
+    Inputs:
+      - pred_bboxes: Tensor of shape (B, N, 5) in xywhr format
+      - gt_bboxes: Tensor of shape (B, N, 5) in xywhr format
+      - fg_mask: Boolean Tensor of shape (B, N) indicating positive anchors
+      
+    Returns:
+      A scalar Tensor representing the mean L1 loss over the vertices for positive anchors.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_bboxes, gt_bboxes, fg_mask):
+        # Convert boxes from xywhr to vertices. The function is assumed to return (B, N, 4, 2)
+        pred_vertices = xywhr2xyxyxyxy(pred_bboxes)
+        gt_vertices   = xywhr2xyxyxyxy(gt_bboxes)
+        B, N, _, _ = pred_vertices.shape
+        # Flatten batch and anchor dimensions for easy masking
+        pred_vertices_flat = pred_vertices.view(B * N, 4, 2)
+        gt_vertices_flat   = gt_vertices.view(B * N, 4, 2)
+        fg_mask_flat       = fg_mask.view(B * N)
+        loss = torch.abs(pred_vertices_flat[fg_mask_flat] - gt_vertices_flat[fg_mask_flat]).mean()
+        return loss
 
 
 class v8ClassificationLoss:
@@ -827,120 +895,66 @@ class v8ClassificationLoss:
 
 
 class v8OBBLoss(v8DetectionLoss):
-    """Calculates losses for object detection, classification, and box distribution in rotated YOLO models."""
-
-    def __init__(self, model):
-        """Initializes v8OBBLoss with model, assigner, and rotated bbox loss; note model must be de-paralleled."""
-        super().__init__(model)
-        self.assigner = RotatedTaskAlignedAssigner(
-            topk=10, num_classes=self.nc, alpha=0.5, beta=6.0
-        )
-        self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)
-        # New hyperparameters for additional loss terms:
-        self.lambda_angle = 1.0  # weight for the angle loss
-        self.lambda_pts = 1.0    # weight for the vertex (points) loss
-
-    def preprocess(self, targets, batch_size, scale_tensor):
-        """Preprocesses the target counts and matches with the input batch size to output a tensor."""
-        if targets.shape[0] == 0:
-            out = torch.zeros(batch_size, 0, 6, device=self.device)
-        else:
-            i = targets[:, 0]  # image index
-            _, counts = i.unique(return_counts=True)
-            counts = counts.to(dtype=torch.int32)
-            out = torch.zeros(batch_size, counts.max(), 6, device=self.device)
-            for j in range(batch_size):
-                matches = i == j
-                n = matches.sum()
-                if n:
-                    bboxes = targets[matches, 2:]
-                    bboxes[..., :4].mul_(scale_tensor)
-                    out[j, :n] = torch.cat([targets[matches, 1:2], bboxes], dim=-1)
-        return out
+    """
+    Calculates losses for object detection, classification, and box distribution in rotated YOLO models.
     
-    def extra_angle_pts_loss(self, pred_bboxes, target_bboxes, fg_mask):
-        """
-        Computes two additional loss terms:
-          - Angle loss: compares the predicted angle with the ground-truth angle.
-          - Vertex loss: converts the predicted and GT boxes (in xywhr format) to 4 vertices and compares them.
-          
-        Args:
-            pred_bboxes (Tensor): Predicted rotated boxes in xywhr format, shape (B, N, 5).
-            target_bboxes (Tensor): Ground-truth boxes (assigned) in xywhr format, shape (B, N, 5).
-            fg_mask (Tensor): Boolean mask for positive anchors, shape (B, N).
-            
-        Returns:
-            angle_loss, pts_loss (Tensors): Mean angle loss and vertex loss computed over positive anchors.
-        """
-        # Angle Loss: Use 1 - cos(delta_angle) to handle the periodicity of angles.
-        pred_angle = pred_bboxes[..., 4]  # shape (B, N)
-        gt_angle = target_bboxes[..., 4]    # shape (B, N)
-        angle_diff = pred_angle - gt_angle
-        angle_loss = (1 - torch.cos(angle_diff))[fg_mask].mean()
-
-        # Vertex Loss: Convert boxes from xywhr to 4 vertices.
-        # Assumes that xywhr2xyxyxyxy returns a tensor of shape (B, N, 4, 2).
-        pred_vertices = xywhr2xyxyxyxy(pred_bboxes)
-        gt_vertices = xywhr2xyxyxyxy(target_bboxes)
-        B, N, _, _ = pred_vertices.shape
-        pred_vertices_flat = pred_vertices.view(B * N, 4, 2)
-        gt_vertices_flat = gt_vertices.view(B * N, 4, 2)
-        fg_mask_flat = fg_mask.view(B * N)
-        pts_loss = torch.abs(pred_vertices_flat[fg_mask_flat] - gt_vertices_flat[fg_mask_flat]).mean()
-
-        return angle_loss, pts_loss
+    When running in "obb" mode the loss tensor has 5 components:
+      [box_loss, cls_loss, dfl_loss, rotation_loss, vertex_loss]
+    so that downstream plotting functions (which extract loss components automatically)
+    will plot all five components.
+    """
+    def __init__(self, model):
+        super().__init__(model)
+        self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
+        self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)
+        # Instantiate the extra losses (only used in obb mode)
+        self.rotation_loss = RotationLoss().to(self.device)
+        self.vertex_loss = VertexLoss().to(self.device)
+        # Hyperparameters for weighting these losses (adjust as needed)
+        self.lambda_rotation = 1.0
+        self.lambda_vertex = 1.0
 
     def __call__(self, preds, batch):
-        """Calculate and return the loss for the YOLO model."""
-        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
-        feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
-        batch_size = pred_angle.shape[0]  # batch size, number of masks, mask height, mask width
-        pred_distri, pred_scores = torch.cat(
-            [xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2
-        ).split((self.reg_max * 4, self.nc), 1)
+        """
+        Compute the losses and return a tuple (total_loss, loss_tensor) where loss_tensor is a 5-element tensor:
+            loss[0] = box_loss,
+            loss[1] = cls_loss,
+            loss[2] = dfl_loss,
+            loss[3] = rotation_loss,
+            loss[4] = vertex_loss.
+        """
+        # Initialize loss tensor with five components
+        loss = torch.zeros(5, device=self.device)  # [box, cls, dfl, rotation, vertex]
 
-        # b, grids, ..
+        # Get predictions (this part is unchanged)
+        feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
+        batch_size = pred_angle.shape[0]
+        pred_distri, pred_scores = torch.cat([xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2).split(
+            (self.reg_max * 4, self.nc), 1
+        )
         pred_scores = pred_scores.permute(0, 2, 1).contiguous()
         pred_distri = pred_distri.permute(0, 2, 1).contiguous()
         pred_angle = pred_angle.permute(0, 2, 1).contiguous()
 
         dtype = pred_scores.dtype
-        imgsz = (
-            torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype)
-            * self.stride[0]
-        )  # image size (h,w)
+        imgsz = torch.tensor(feats[0].shape[2:], device=self.device, dtype=dtype) * self.stride[0]
         anchor_points, stride_tensor = make_anchors(feats, self.stride, 0.5)
 
-        # targets
+        # Preprocess targets
         try:
             batch_idx = batch["batch_idx"].view(-1, 1)
-            targets = torch.cat(
-                (batch_idx, batch["cls"].view(-1, 1), batch["bboxes"].view(-1, 5)), 1
-            )
+            targets = torch.cat((batch_idx, batch["cls"].view(-1, 1), batch["bboxes"].view(-1, 5)), 1)
             rw, rh = targets[:, 4] * imgsz[0].item(), targets[:, 5] * imgsz[1].item()
-            targets = targets[
-                (rw >= 2) & (rh >= 2)
-            ]  # filter rboxes of tiny size to stabilize training
-            targets = self.preprocess(
-                targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]]
-            )
+            targets = targets[(rw >= 2) & (rh >= 2)]
+            targets = self.preprocess(targets.to(self.device), batch_size, scale_tensor=imgsz[[1, 0, 1, 0]])
             gt_labels, gt_bboxes = targets.split((1, 5), 2)  # cls, xywhr
             mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
         except RuntimeError as e:
-            raise TypeError(
-                "ERROR ❌ OBB dataset incorrectly formatted or not an OBB dataset.\n"
-                "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
-                "i.e. 'yolo train model=yolov8n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
-                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
-            ) from e
+            raise TypeError("ERROR: OBB dataset incorrectly formatted or not an OBB dataset. Verify dataset format.") from e
 
-        # Pboxes
-        pred_bboxes = self.bbox_decode(
-            anchor_points, pred_distri, pred_angle
-        )  # xyxy, (B, h*w, 4)
-
+        # Decode predicted boxes (in xywhr format)
+        pred_bboxes = self.bbox_decode(anchor_points, pred_distri, pred_angle)  # shape: (B, total_anchors, 5)
         bboxes_for_assigner = pred_bboxes.clone().detach()
-        # Only the first four elements need to be scaled
         bboxes_for_assigner[..., :4] *= stride_tensor
         _, target_bboxes, target_scores, fg_mask, _ = self.assigner(
             pred_scores.detach().sigmoid(),
@@ -950,38 +964,31 @@ class v8OBBLoss(v8DetectionLoss):
             gt_bboxes,
             mask_gt,
         )
-
         target_scores_sum = max(target_scores.sum(), 1)
 
-        # Classification loss (BCE)
-        loss[1] = (
-            self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum
-        )
-
-        # Bounding box loss
+        # Compute the "box", "cls", and "dfl" losses as before.
         if fg_mask.sum():
             target_bboxes[..., :4] /= stride_tensor
-            loss[0], loss[2] = self.bbox_loss(
-                pred_distri,
-                pred_bboxes,
-                anchor_points,
-                target_bboxes,
-                target_scores,
-                target_scores_sum,
-                fg_mask,
+            box_loss, dfl_loss = self.bbox_loss(
+                pred_distri, pred_bboxes, anchor_points, target_bboxes, target_scores, target_scores_sum, fg_mask
             )
+            loss[0] = box_loss
+            loss[2] = dfl_loss
         else:
-            loss[0] += (pred_angle * 0).sum()
+            loss[0] = (pred_angle * 0).sum()
 
-        loss[0] *= self.hyp.box  # box gain
-        loss[1] *= self.hyp.cls  # cls gain
-        loss[2] *= self.hyp.dfl  # dfl gain
+        loss[1] = self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum
 
-        # New: Compute additional angle and vertex losses on positive anchors
-        angle_loss, pts_loss = self.extra_angle_pts_loss(pred_bboxes, target_bboxes, fg_mask)
-        total_loss = (loss.sum() * batch_size) + self.lambda_angle * angle_loss + self.lambda_pts * pts_loss
+        loss[0] *= self.hyp.box
+        loss[1] *= self.hyp.cls
+        loss[2] *= self.hyp.dfl
 
-        return total_loss, loss.detach()  # returns (total loss, individual loss components)
+        # Compute additional losses only for OBB mode:
+        loss[3] = self.rotation_loss(pred_bboxes, target_bboxes, fg_mask)
+        loss[4] = self.vertex_loss(pred_bboxes, target_bboxes, fg_mask)
+
+        total_loss = loss.sum() * batch_size
+        return total_loss, loss.detach()
 
     def bbox_decode(self, anchor_points, pred_dist, pred_angle):
         """
