@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA, OKS_SIGMA_72_LMKS
-from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
+from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh, xyxyxyxy2xywhr, xywhr2xyxyxyxy
 from ultralytics.utils.tal import (
     RotatedTaskAlignedAssigner,
     TaskAlignedAssigner,
@@ -836,6 +836,9 @@ class v8OBBLoss(v8DetectionLoss):
             topk=10, num_classes=self.nc, alpha=0.5, beta=6.0
         )
         self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)
+        # New hyperparameters for additional loss terms:
+        self.lambda_angle = 1.0  # weight for the angle loss
+        self.lambda_pts = 1.0    # weight for the vertex (points) loss
 
     def preprocess(self, targets, batch_size, scale_tensor):
         """Preprocesses the target counts and matches with the input batch size to output a tensor."""
@@ -854,14 +857,44 @@ class v8OBBLoss(v8DetectionLoss):
                     bboxes[..., :4].mul_(scale_tensor)
                     out[j, :n] = torch.cat([targets[matches, 1:2], bboxes], dim=-1)
         return out
+    
+    def extra_angle_pts_loss(self, pred_bboxes, target_bboxes, fg_mask):
+        """
+        Computes two additional loss terms:
+          - Angle loss: compares the predicted angle with the ground-truth angle.
+          - Vertex loss: converts the predicted and GT boxes (in xywhr format) to 4 vertices and compares them.
+          
+        Args:
+            pred_bboxes (Tensor): Predicted rotated boxes in xywhr format, shape (B, N, 5).
+            target_bboxes (Tensor): Ground-truth boxes (assigned) in xywhr format, shape (B, N, 5).
+            fg_mask (Tensor): Boolean mask for positive anchors, shape (B, N).
+            
+        Returns:
+            angle_loss, pts_loss (Tensors): Mean angle loss and vertex loss computed over positive anchors.
+        """
+        # Angle Loss: Use 1 - cos(delta_angle) to handle the periodicity of angles.
+        pred_angle = pred_bboxes[..., 4]  # shape (B, N)
+        gt_angle = target_bboxes[..., 4]    # shape (B, N)
+        angle_diff = pred_angle - gt_angle
+        angle_loss = (1 - torch.cos(angle_diff))[fg_mask].mean()
+
+        # Vertex Loss: Convert boxes from xywhr to 4 vertices.
+        # Assumes that xywhr2xyxyxyxy returns a tensor of shape (B, N, 4, 2).
+        pred_vertices = xywhr2xyxyxyxy(pred_bboxes)
+        gt_vertices = xywhr2xyxyxyxy(target_bboxes)
+        B, N, _, _ = pred_vertices.shape
+        pred_vertices_flat = pred_vertices.view(B * N, 4, 2)
+        gt_vertices_flat = gt_vertices.view(B * N, 4, 2)
+        fg_mask_flat = fg_mask.view(B * N)
+        pts_loss = torch.abs(pred_vertices_flat[fg_mask_flat] - gt_vertices_flat[fg_mask_flat]).mean()
+
+        return angle_loss, pts_loss
 
     def __call__(self, preds, batch):
         """Calculate and return the loss for the YOLO model."""
         loss = torch.zeros(3, device=self.device)  # box, cls, dfl
         feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
-        batch_size = pred_angle.shape[
-            0
-        ]  # batch size, number of masks, mask height, mask width
+        batch_size = pred_angle.shape[0]  # batch size, number of masks, mask height, mask width
         pred_distri, pred_scores = torch.cat(
             [xi.view(feats[0].shape[0], self.no, -1) for xi in feats], 2
         ).split((self.reg_max * 4, self.nc), 1)
@@ -895,17 +928,16 @@ class v8OBBLoss(v8DetectionLoss):
             mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
         except RuntimeError as e:
             raise TypeError(
-                "ERROR ❌ OBB dataset incorrectly formatted or not a OBB dataset.\n"
+                "ERROR ❌ OBB dataset incorrectly formatted or not an OBB dataset.\n"
                 "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
                 "i.e. 'yolo train model=yolov8n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
-                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' "
-                "as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
+                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
             ) from e
 
         # Pboxes
         pred_bboxes = self.bbox_decode(
             anchor_points, pred_distri, pred_angle
-        )  # xyxy, (b, h*w, 4)
+        )  # xyxy, (B, h*w, 4)
 
         bboxes_for_assigner = pred_bboxes.clone().detach()
         # Only the first four elements need to be scaled
@@ -921,13 +953,12 @@ class v8OBBLoss(v8DetectionLoss):
 
         target_scores_sum = max(target_scores.sum(), 1)
 
-        # Cls loss
-        # loss[1] = self.varifocal_loss(pred_scores, target_scores, target_labels) / target_scores_sum  # VFL way
+        # Classification loss (BCE)
         loss[1] = (
             self.bce(pred_scores, target_scores.to(dtype)).sum() / target_scores_sum
-        )  # BCE
+        )
 
-        # Bbox loss
+        # Bounding box loss
         if fg_mask.sum():
             target_bboxes[..., :4] /= stride_tensor
             loss[0], loss[2] = self.bbox_loss(
@@ -946,7 +977,11 @@ class v8OBBLoss(v8DetectionLoss):
         loss[1] *= self.hyp.cls  # cls gain
         loss[2] *= self.hyp.dfl  # dfl gain
 
-        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
+        # New: Compute additional angle and vertex losses on positive anchors
+        angle_loss, pts_loss = self.extra_angle_pts_loss(pred_bboxes, target_bboxes, fg_mask)
+        total_loss = (loss.sum() * batch_size) + self.lambda_angle * angle_loss + self.lambda_pts * pts_loss
+
+        return total_loss, loss.detach()  # returns (total loss, individual loss components)
 
     def bbox_decode(self, anchor_points, pred_dist, pred_angle):
         """
