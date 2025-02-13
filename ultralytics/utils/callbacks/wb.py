@@ -139,13 +139,19 @@ def on_fit_epoch_end(trainer):
 
 
 def on_train_epoch_end(trainer):
-    """Log metrics and save images at the end of each training epoch."""
-    wb.run.log(
-        trainer.label_loss_items(trainer.tloss, prefix="train"), step=trainer.epoch + 1
-    )
+    """
+    At the end of each training epoch, log training metrics (including rotation and vertex losses)
+    and learning rates to Weights & Biases.
+    """
+    # Log the training loss dictionary (our label_loss_items returns keys with prefix "train/")
+    loss_dict = trainer.label_loss_items(trainer.tloss, prefix="train")
+    wb.run.log(loss_dict, step=trainer.epoch + 1)
+    # Log learning rates
     wb.run.log(trainer.lr, step=trainer.epoch + 1)
-    if trainer.epoch == 1:
-        _log_plots(trainer.plots, step=trainer.epoch + 1)
+    _log_plots(trainer.plots, step=trainer.epoch + 1)
+    _log_plots(trainer.validator.plots, step=trainer.epoch + 1)
+    if trainer.epoch == 0:
+        wb.run.log(model_info_for_loggers(trainer), step=trainer.epoch + 1)
 
 
 def on_train_end(trainer):

@@ -1372,69 +1372,100 @@ def plot_results(
     on_plot=None,
 ):
     """
-    Plot training results from a results CSV file. The function supports various types of data including segmentation,
-    pose estimation, and classification. Plots are saved as 'results.png' in the directory where the CSV is located.
+    Plot training results from a results CSV file. For OBB tasks (when the CSV header includes
+    "rot_loss"), the following curves are plotted:
+      - Training losses: box_loss, cls_loss, dfl_loss, rot_loss, vtx_loss
+      - Metrics: precision(B), recall(B), mAP50(B), mAP50-95(B)
+      - Validation losses: box_loss, cls_loss, dfl_loss, rot_loss, vtx_loss
+    Learning rates are not plotted.
 
     Args:
-        file (str, optional): Path to the CSV file containing the training results. Defaults to 'path/to/results.csv'.
-        dir (str, optional): Directory where the CSV file is located if 'file' is not provided. Defaults to ''.
-        segment (bool, optional): Flag to indicate if the data is for segmentation. Defaults to False.
-        pose (bool, optional): Flag to indicate if the data is for pose estimation. Defaults to False.
-        classify (bool, optional): Flag to indicate if the data is for classification. Defaults to False.
-        on_plot (callable, optional): Callback function to be executed after plotting. Takes filename as an argument.
-            Defaults to None.
+        file (str, optional): Path to the CSV file containing the training results.
+        dir (str, optional): Directory where the CSV file is located if 'file' is not provided.
+        segment (bool, optional): Flag for segmentation plotting.
+        pose (bool, optional): Flag for pose plotting.
+        classify (bool, optional): Flag for classification plotting.
+        on_plot (callable, optional): Callback to be called after plotting.
 
     Example:
-        ```python
-        from ultralytics.utils.plotting import plot_results
-
-        plot_results("path/to/results.csv", segment=True)
-        ```
+        >>> from ultralytics.utils.plotting import plot_results
+        >>> plot_results("path/to/results.csv")
     """
-    import pandas as pd  # scope for faster 'import ultralytics'
+    import pandas as pd
     from scipy.ndimage import gaussian_filter1d
+    from math import ceil
 
     save_dir = Path(file).parent if file else Path(dir)
-    if classify:
-        fig, ax = plt.subplots(2, 2, figsize=(6, 6), tight_layout=True)
-        index = [2, 5, 3, 4]
-    elif segment:
-        fig, ax = plt.subplots(2, 8, figsize=(18, 6), tight_layout=True)
-        index = [2, 3, 4, 5, 6, 7, 10, 11, 14, 15, 16, 17, 8, 9, 12, 13]
-    elif pose:
-        fig, ax = plt.subplots(2, 9, figsize=(21, 6), tight_layout=True)
-        index = [2, 3, 4, 5, 6, 7, 8, 11, 12, 15, 16, 17, 18, 19, 9, 10, 13, 14]
-    else:
-        fig, ax = plt.subplots(2, 5, figsize=(12, 6), tight_layout=True)
-        index = [2, 3, 4, 5, 6, 9, 10, 11, 7, 8]
-    ax = ax.ravel()
     files = list(save_dir.glob("results*.csv"))
     assert len(
         files
     ), f"No results.csv files found in {save_dir.resolve()}, nothing to plot."
+
+    # Read header from the first CSV file to determine task type
+    sample = pd.read_csv(files[0], nrows=1)
+    headers = [x.strip() for x in sample.columns]
+
+    if any("rot_loss" in h for h in headers):
+        # OBB task: expect CSV header as:
+        # epoch, time, train/box_loss, train/cls_loss, train/dfl_loss, train/rot_loss,
+        # train/vtx_loss, metrics/precision(B), metrics/recall(B), metrics/mAP50(B),
+        # metrics/mAP50-95(B), val/box_loss, val/cls_loss, val/dfl_loss, val/rot_loss, val/vtx_loss, ...
+        # We ignore learning rates.
+        # We want to plot columns indices 2 through 15.
+        index = list(range(2, 16))  # 14 curves in total
+        n_plots = len(index)
+        n_rows = 2
+        n_cols = ceil(n_plots / n_rows)
+        fig, ax = plt.subplots(
+            n_rows, n_cols, figsize=(4 * n_cols, 4 * n_rows), tight_layout=True
+        )
+        ax = ax.ravel()
+    elif classify:
+        fig, ax = plt.subplots(2, 2, figsize=(6, 6), tight_layout=True)
+        index = [2, 5, 3, 4]
+        ax = ax.ravel()
+    elif segment:
+        fig, ax = plt.subplots(2, 8, figsize=(18, 6), tight_layout=True)
+        index = [2, 3, 4, 5, 6, 7, 10, 11, 14, 15, 16, 17, 8, 9, 12, 13]
+        ax = ax.ravel()
+    elif pose:
+        fig, ax = plt.subplots(2, 9, figsize=(21, 6), tight_layout=True)
+        index = [2, 3, 4, 5, 6, 7, 8, 11, 12, 15, 16, 17, 18, 19, 9, 10, 13, 14]
+        ax = ax.ravel()
+    else:
+        fig, ax = plt.subplots(2, 5, figsize=(12, 6), tight_layout=True)
+        index = [2, 3, 4, 5, 6, 9, 10, 11, 7, 8]
+        ax = ax.ravel()
+
+    # Plot curves for each CSV file
     for f in files:
         try:
             data = pd.read_csv(f)
             s = [x.strip() for x in data.columns]
-            x = data.values[:, 0]
+            x_vals = data.values[:, 0]  # epoch numbers
             for i, j in enumerate(index):
-                y = data.values[:, j].astype("float")
-                # y[y == 0] = np.nan  # don't show zero values
+                y_vals = data.values[:, j].astype("float")
                 ax[i].plot(
-                    x, y, marker=".", label=f.stem, linewidth=2, markersize=8
-                )  # actual results
+                    x_vals, y_vals, marker=".", label=f.stem, linewidth=2, markersize=8
+                )
                 ax[i].plot(
-                    x, gaussian_filter1d(y, sigma=3), ":", label="smooth", linewidth=2
-                )  # smoothing line
+                    x_vals,
+                    gaussian_filter1d(y_vals, sigma=3),
+                    ":",
+                    label="smooth",
+                    linewidth=2,
+                )
                 ax[i].set_title(s[j], fontsize=12)
-                # if j in {8, 9, 10}:  # share train and val loss y axes
-                #     ax[i].get_shared_y_axes().join(ax[i], ax[i - 5])
         except Exception as e:
             LOGGER.warning(f"WARNING: Plotting error for {f}: {e}")
+    # Turn off any unused axes
+    for k in range(len(index), len(ax)):
+        ax[k].axis("off")
+    # Use one legend (you can adjust which axis shows the legend)
     ax[1].legend()
     fname = save_dir / "results.png"
     fig.savefig(fname, dpi=200)
-    plt.close()
+    plt.close(fig)
     if on_plot:
         on_plot(fname)
 

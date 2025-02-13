@@ -753,14 +753,29 @@ class BaseTrainer:
         """Build dataset."""
         raise NotImplementedError("build_dataset function not implemented in trainer")
 
+        # Modify (or override) the label_loss_items method to return detailed losses for OBB task
+
     def label_loss_items(self, loss_items=None, prefix="train"):
         """
-        Returns a loss dict with labelled training loss items tensor.
-
-        Note:
-            This is not needed for classification but necessary for segmentation & detection
+        Returns a dictionary of labeled training loss items.
+        For OBB tasks, returns box, cls, dfl, rotation, and vertex losses.
+        For other tasks, returns a default loss.
         """
-        return {"loss": loss_items} if loss_items is not None else ["loss"]
+        if loss_items is None:
+            return {}
+        if self.args.task == "obb":
+            # Assume loss_items is a tensor with 5 elements in the order:
+            # [box_loss, cls_loss, dfl_loss, rotation_loss, vertex_loss]
+            return {
+                f"{prefix}/box_loss": loss_items[0].item(),
+                f"{prefix}/cls_loss": loss_items[1].item(),
+                f"{prefix}/dfl_loss": loss_items[2].item(),
+                f"{prefix}/rotation_loss": loss_items[3].item(),
+                f"{prefix}/vertex_loss": loss_items[4].item(),
+            }
+        else:
+            # Default behavior for other tasks: return total loss
+            return {"loss": loss_items.item()}
 
     def set_model_attributes(self):
         """To set or update model parameters before training."""
