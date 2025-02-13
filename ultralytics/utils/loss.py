@@ -1011,8 +1011,8 @@ class v8OBBLoss(v8DetectionLoss):
         loss[2] *= self.hyp.dfl
 
         # Compute additional losses only for OBB mode:
-        loss[3] = self.rotation_loss(pred_bboxes, target_bboxes, fg_mask)
-        loss[4] = self.vertex_loss(pred_bboxes, target_bboxes, fg_mask)
+        loss[3] = self.lambda_rotation * self.rotation_loss(pred_bboxes, target_bboxes, fg_mask)
+        loss[4] = self.lambda_vertex * self.vertex_loss(pred_bboxes, target_bboxes, fg_mask)
 
         total_loss = loss.sum() * batch_size
         return total_loss, loss.detach()
