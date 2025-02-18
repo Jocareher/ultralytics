@@ -1014,8 +1014,18 @@ class v8OBBLoss(v8DetectionLoss):
         loss[3] = self.lambda_rotation * self.rotation_loss(pred_bboxes, target_bboxes, fg_mask)
         loss[4] = self.lambda_vertex * self.vertex_loss(pred_bboxes, target_bboxes, fg_mask)
 
-        total_loss = loss.sum() * batch_size
-        return total_loss, loss.detach()
+        # Compute the total loss per sample (without batch scaling).
+        total_loss_per_sample = loss.sum()
+
+        # Compute total loss for backpropagation (scaled by batch size).
+        total_loss = total_loss_per_sample * batch_size
+
+        # Create an extended loss tensor including the total loss per sample as the 6th element.
+        loss_extended = torch.zeros(6, device=self.device)
+        loss_extended[:5] = loss
+        loss_extended[5] = total_loss_per_sample
+
+        return total_loss, loss_extended.detach()
 
     def bbox_decode(self, anchor_points, pred_dist, pred_angle):
         """
