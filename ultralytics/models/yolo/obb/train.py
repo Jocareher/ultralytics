@@ -38,7 +38,7 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
 
     def get_validator(self):
         """Return an instance of OBBValidator for validation of YOLO model."""
-        self.loss_names = "box_loss", "cls_loss", "dfl_loss", "rot_loss", "vtx_loss"
+        self.loss_names = "box_loss", "cls_loss", "dfl_loss", "rot_loss", "vtx_loss", "total_loss"
         return yolo.obb.OBBValidator(
             self.test_loader, save_dir=self.save_dir, args=copy(self.args)
         )
@@ -51,7 +51,7 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
         returns a dictionary mapping each loss name to its value.
 
         For the "obb" task, the expected losses are:
-            [box_loss, cls_loss, dfl_loss, rot_loss, vtx_loss]
+            [box_loss, cls_loss, dfl_loss, rot_loss, vtx_loss, total_loss]
         """
         if loss_items is None:
             # This list is used to build the CSV header and plot labels.
@@ -61,6 +61,7 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
                 f"{prefix}/dfl_loss",
                 f"{prefix}/rot_loss",
                 f"{prefix}/vtx_loss",
+                f"{prefix}/total_loss",
             ]
         else:
             # When loss_items is provided, return a dict for logging/saving.
@@ -70,4 +71,5 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
                 f"{prefix}/dfl_loss": loss_items[2].item(),
                 f"{prefix}/rot_loss": loss_items[3].item(),
                 f"{prefix}/vtx_loss": loss_items[4].item(),
+                f"{prefix}/total_loss": loss_items[5].item(),
             }

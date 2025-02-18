@@ -930,6 +930,7 @@ class v8OBBLoss(v8DetectionLoss):
             loss[2] = dfl_loss,
             loss[3] = rotation_loss,
             loss[4] = vertex_loss.
+            loss[5] = total_loss_per_sample.
         """
         # Initialize loss tensor with five components
         loss = torch.zeros(5, device=self.device)  # [box, cls, dfl, rotation, vertex]
@@ -966,7 +967,11 @@ class v8OBBLoss(v8DetectionLoss):
             mask_gt = gt_bboxes.sum(2, keepdim=True).gt_(0.0)
         except RuntimeError as e:
             raise TypeError(
-                "ERROR: OBB dataset incorrectly formatted or not an OBB dataset. Verify dataset format."
+                "ERROR ❌ OBB dataset incorrectly formatted or not a OBB dataset.\n"
+                "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
+                "i.e. 'yolo train model=yolo11n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
+                "correctly formatted 'OBB' dataset using 'data=dota8.yaml' "
+                "as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
             ) from e
 
         # Decode predicted boxes (in xywhr format)
