@@ -764,14 +764,15 @@ class BaseTrainer:
         if loss_items is None:
             return {}
         if self.args.task == "obb":
-            # Assume loss_items is a tensor with 5 elements in the order:
-            # [box_loss, cls_loss, dfl_loss, rotation_loss, vertex_loss]
+            # Assume loss_items is a tensor with 6 elements in the order:
+            # [box_loss, cls_loss, dfl_loss, rot_loss, vtx_loss]
             return {
                 f"{prefix}/box_loss": loss_items[0].item(),
                 f"{prefix}/cls_loss": loss_items[1].item(),
                 f"{prefix}/dfl_loss": loss_items[2].item(),
-                f"{prefix}/rotation_loss": loss_items[3].item(),
-                f"{prefix}/vertex_loss": loss_items[4].item(),
+                f"{prefix}/rot_loss": loss_items[3].item(),
+                f"{prefix}/ver_loss": loss_items[4].item(),
+                f"{prefix}/total_loss": loss_items[5].item(),
             }
         else:
             # Default behavior for other tasks: return total loss
