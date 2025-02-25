@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Model head modules."""
 
 import copy
@@ -359,6 +359,8 @@ class Pose(Detect):
 class Classify(nn.Module):
     """YOLO classification head, i.e. x(b,c1,20,20) to x(b,c2)."""
 
+    export = False  # export mode
+
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1):
         """Initializes YOLO classification head to transform input tensor from (b,c1,20,20) to (b,c2) shape."""
         super().__init__()
@@ -373,7 +375,10 @@ class Classify(nn.Module):
         if isinstance(x, list):
             x = torch.cat(x, 1)
         x = self.linear(self.drop(self.pool(self.conv(x)).flatten(1)))
-        return x if self.training else x.softmax(1)
+        if self.training:
+            return x
+        y = x.softmax(1)  # get final output
+        return y if self.export else (y, x)
 
 
 class WorldDetect(Detect):

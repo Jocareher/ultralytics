@@ -8,6 +8,8 @@ keywords: Ultralytics, YOLO11, heatmaps, data visualization, data analysis, comp
 
 ## Introduction to Heatmaps
 
+<a href="https://colab.research.google.com/github/ultralytics/notebooks/blob/main/notebooks/how-to-generate-heatmaps-using-ultralytics-yolo.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open Heatmaps In Colab"></a>
+
 A heatmap generated with [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics/) transforms complex data into a vibrant, color-coded matrix. This visual tool employs a spectrum of colors to represent varying data values, where warmer hues indicate higher intensities and cooler tones signify lower values. Heatmaps excel in visualizing intricate data patterns, correlations, and anomalies, offering an accessible and engaging approach to data interpretation across diverse domains.
 
 <p align="center">
@@ -49,7 +51,7 @@ A heatmap generated with [Ultralytics YOLO11](https://github.com/ultralytics/ult
         yolo solutions heatmap colormap=cv2.COLORMAP_INFERNO
 
         # Heatmaps + object counting
-        yolo solutions heatmap region=[(20, 400), (1080, 404), (1080, 360), (20, 360)]
+        yolo solutions heatmap region=[(20, 400), (1080, 400), (1080, 360), (20, 360)]
         ```
 
     === "Python"
@@ -67,9 +69,9 @@ A heatmap generated with [Ultralytics YOLO11](https://github.com/ultralytics/ult
         video_writer = cv2.VideoWriter("heatmap_output.avi", cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
 
         # In case you want to apply object counting + heatmaps, you can pass region points.
-        # region_points = [(20, 400), (1080, 404)]  # Define line points
-        # region_points = [(20, 400), (1080, 404), (1080, 360), (20, 360)]  # Define region points
-        # region_points = [(20, 400), (1080, 404), (1080, 360), (20, 360), (20, 400)]  # Define polygon points
+        # region_points = [(20, 400), (1080, 400)]  # Define line points
+        # region_points = [(20, 400), (1080, 400), (1080, 360), (20, 360)]  # Define region points
+        # region_points = [(20, 400), (1080, 400), (1080, 360), (20, 360), (20, 400)]  # Define polygon points
 
         # Init heatmap
         heatmap = solutions.Heatmap(

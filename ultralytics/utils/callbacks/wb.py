@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from ultralytics.utils import SETTINGS, TESTS_RUNNING
 from ultralytics.utils.torch_utils import model_info_for_loggers
@@ -122,11 +122,12 @@ def _log_plots(plots, step):
 
 def on_pretrain_routine_start(trainer):
     """Initiate and start project if module is present."""
-    wb.run or wb.init(
-        project=trainer.args.project or "Ultralytics",
-        name=trainer.args.name,
-        config=vars(trainer.args),
-    )
+    if not wb.run:
+        wb.init(
+            project=str(trainer.args.project).replace("/", "-") if trainer.args.project else "Ultralytics",
+            name=str(trainer.args.name).replace("/", "-"),
+            config=vars(trainer.args),
+        )
 
 
 def on_fit_epoch_end(trainer):

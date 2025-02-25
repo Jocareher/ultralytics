@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import json
 from time import time
@@ -22,8 +22,7 @@ def on_pretrain_routine_start(trainer):
 
 def on_pretrain_routine_end(trainer):
     """Logs info before starting timer for upload rate limit."""
-    session = getattr(trainer, "hub_session", None)
-    if session:
+    if session := getattr(trainer, "hub_session", None):
         # Start timer for upload rate limit
         session.timers = {
             "metrics": time(),
@@ -33,8 +32,7 @@ def on_pretrain_routine_end(trainer):
 
 def on_fit_epoch_end(trainer):
     """Uploads training progress metrics at the end of each epoch."""
-    session = getattr(trainer, "hub_session", None)
-    if session:
+    if session := getattr(trainer, "hub_session", None):
         # Upload metrics after val end
         all_plots = {
             **trainer.label_loss_items(trainer.tloss, prefix="train"),
@@ -59,8 +57,7 @@ def on_fit_epoch_end(trainer):
 
 def on_model_save(trainer):
     """Saves checkpoints to Ultralytics HUB with rate limiting."""
-    session = getattr(trainer, "hub_session", None)
-    if session:
+    if session := getattr(trainer, "hub_session", None):
         # Upload checkpoints with rate limiting
         is_best = trainer.best_fitness == trainer.fitness
         if time() - session.timers["ckpt"] > session.rate_limits["ckpt"]:
@@ -73,8 +70,7 @@ def on_model_save(trainer):
 
 def on_train_end(trainer):
     """Upload final model and metrics to Ultralytics HUB at the end of training."""
-    session = getattr(trainer, "hub_session", None)
-    if session:
+    if session := getattr(trainer, "hub_session", None):
         # Upload final model and metrics with exponential standoff
         LOGGER.info(f"{PREFIX}Syncing final model...")
         session.upload_model(
@@ -84,9 +80,7 @@ def on_train_end(trainer):
             final=True,
         )
         session.alive = False  # stop heartbeats
-        LOGGER.info(
-            f"{PREFIX}Done ✅\n" f"{PREFIX}View model at {session.model_url} 🚀"
-        )
+        LOGGER.info(f"{PREFIX}Done ✅\n{PREFIX}View model at {session.model_url} 🚀")
 
 
 def on_train_start(trainer):

@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from collections import defaultdict
 
@@ -35,7 +35,7 @@ class BaseSolution:
         display_output: Display the results of processing, including showing frames or saving results.
 
     Examples:
-        >>> solution = BaseSolution(model="yolov8n.pt", region=[(0, 0), (100, 0), (100, 100), (0, 100)])
+        >>> solution = BaseSolution(model="yolo11n.pt", region=[(0, 0), (100, 0), (100, 100), (0, 100)])
         >>> solution.initialize_region()
         >>> image = cv2.imread("image.jpg")
         >>> solution.extract_tracks(image)
@@ -56,6 +56,14 @@ class BaseSolution:
         self.Polygon = Polygon
         self.Point = Point
         self.prep = prep
+        self.annotator = None  # Initialize annotator
+        self.tracks = None
+        self.track_data = None
+        self.boxes = []
+        self.clss = []
+        self.track_ids = []
+        self.track_line = None
+        self.r_s = None
 
         # Load config and update with args
         DEFAULT_SOL_DICT.update(kwargs)
@@ -73,6 +81,10 @@ class BaseSolution:
             self.CFG["model"] = "yolo11n.pt"
         self.model = YOLO(self.CFG["model"])
         self.names = self.model.names
+
+        self.track_add_args = {  # Tracker additional arguments for advance configuration
+            k: self.CFG[k] for k in ["verbose", "iou", "conf", "device", "max_det", "half", "tracker"]
+        }
 
         if IS_CLI and self.CFG["source"] is None:
             d_s = "solutions_ci_demo.mp4" if "-pose" not in self.CFG["model"] else "solution_ci_pose_demo.mp4"
@@ -98,9 +110,7 @@ class BaseSolution:
             >>> frame = cv2.imread("path/to/image.jpg")
             >>> solution.extract_tracks(frame)
         """
-        self.tracks = self.model.track(
-            source=im0, persist=True, classes=self.CFG["classes"]
-        )
+        self.tracks = self.model.track(source=im0, persist=True, classes=self.CFG["classes"], **self.track_add_args)
 
         # Extract tracks for OBB or object detection
         self.track_data = self.tracks[0].obb or self.tracks[0].boxes
@@ -137,7 +147,7 @@ class BaseSolution:
     def initialize_region(self):
         """Initialize the counting region and line segment based on configuration settings."""
         if self.region is None:
-            self.region = [(20, 400), (1080, 404), (1080, 360), (20, 360)]
+            self.region = [(20, 400), (1080, 400), (1080, 360), (20, 360)]
         self.r_s = (
             self.Polygon(self.region)
             if len(self.region) >= 3

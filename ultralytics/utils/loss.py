@@ -1,11 +1,11 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from ultralytics.utils.metrics import OKS_SIGMA, OKS_SIGMA_72_LMKS
-from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
+from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh, xyxyxyxy2xywhr, xywhr2xyxyxyxy
 from ultralytics.utils.tal import (
     RotatedTaskAlignedAssigner,
     TaskAlignedAssigner,
@@ -263,8 +263,7 @@ class v8DetectionLoss:
             out = torch.zeros(batch_size, counts.max(), ne - 1, device=self.device)
             for j in range(batch_size):
                 matches = i == j
-                n = matches.sum()
-                if n:
+                if n := matches.sum():
                     out[j, :n] = targets[matches, 1:]
             out[..., 1:5] = xywh2xyxy(out[..., 1:5].mul_(scale_tensor))
         return out
@@ -404,7 +403,7 @@ class v8SegmentationLoss(v8DetectionLoss):
             raise TypeError(
                 "ERROR ❌ segment dataset incorrectly formatted or not a segment dataset.\n"
                 "This error can occur when incorrectly training a 'segment' model on a 'detect' dataset, "
-                "i.e. 'yolo train model=yolov8n-seg.pt data=coco8.yaml'.\nVerify your dataset is a "
+                "i.e. 'yolo train model=yolo11n-seg.pt data=coco8.yaml'.\nVerify your dataset is a "
                 "correctly formatted 'segment' dataset using 'data=coco8-seg.yaml' "
                 "as an example.\nSee https://docs.ultralytics.com/datasets/segment/ for help."
             ) from e
@@ -729,9 +728,8 @@ class v8PoseLoss(v8DetectionLoss):
             pred_kpts (torch.Tensor): Predicted keypoints.
 
         Returns:
-            (tuple): Returns a tuple containing:
-                - kpts_loss (torch.Tensor): The keypoints loss.
-                - kpts_obj_loss (torch.Tensor): The keypoints object loss.
+            kpts_loss (torch.Tensor): The keypoints loss.
+            kpts_obj_loss (torch.Tensor): The keypoints object loss.
         """
         batch_idx = batch_idx.flatten()
         batch_size = len(masks)
@@ -823,9 +821,76 @@ class v8ClassificationLoss:
 
     def __call__(self, preds, batch):
         """Compute the classification loss between predictions and true labels."""
+        preds = preds[1] if isinstance(preds, (list, tuple)) else preds
         loss = F.cross_entropy(preds, batch["cls"], reduction="mean")
         loss_items = loss.detach()
         return loss, loss_items
+
+class RotationLoss(nn.Module):
+    """
+    Computes the rotation (angle) loss for oriented bounding boxes.
+
+    The loss is defined as:
+
+        L_rotation = 1 - cos(theta_pred - theta_gt)
+
+    which is robust to the periodicity of angles.
+
+    Inputs:
+      - pred_bboxes: Tensor of shape (B, N, 5) in xywhr format (last element is the angle, in radians)
+      - gt_bboxes: Tensor of shape (B, N, 5) in xywhr format (last element is the ground-truth angle)
+      - fg_mask: Boolean Tensor of shape (B, N) indicating positive anchors
+
+    Returns:
+      A scalar Tensor representing the mean rotation loss over positive anchors.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_bboxes, gt_bboxes, fg_mask):
+        # Extract angles from the last element of each box.
+        pred_angle = pred_bboxes[..., 4]  # shape: (B, N)
+        gt_angle = gt_bboxes[..., 4]  # shape: (B, N)
+        # Compute the cosine-based loss:
+        loss = (1 - torch.cos(pred_angle - gt_angle))[fg_mask].mean()
+        return loss
+
+
+class VertexLoss(nn.Module):
+    """
+    Computes the vertex (points) loss for oriented bounding boxes.
+
+    This loss first converts the predicted and ground-truth boxes (in xywhr format)
+    into 4 vertices using the provided function xywhr2xyxyxyxy, then computes an L1 loss:
+
+        L_vertex = mean_{positive anchors}[ L1(pred_vertices - gt_vertices) ]
+
+    Inputs:
+      - pred_bboxes: Tensor of shape (B, N, 5) in xywhr format
+      - gt_bboxes: Tensor of shape (B, N, 5) in xywhr format
+      - fg_mask: Boolean Tensor of shape (B, N) indicating positive anchors
+
+    Returns:
+      A scalar Tensor representing the mean L1 loss over the vertices for positive anchors.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, pred_bboxes, gt_bboxes, fg_mask):
+        # Convert boxes from xywhr to vertices. The function is assumed to return (B, N, 4, 2)
+        pred_vertices = xywhr2xyxyxyxy(pred_bboxes)
+        gt_vertices = xywhr2xyxyxyxy(gt_bboxes)
+        B, N, _, _ = pred_vertices.shape
+        # Flatten batch and anchor dimensions for easy masking
+        pred_vertices_flat = pred_vertices.view(B * N, 4, 2)
+        gt_vertices_flat = gt_vertices.view(B * N, 4, 2)
+        fg_mask_flat = fg_mask.view(B * N)
+        loss = torch.abs(
+            pred_vertices_flat[fg_mask_flat] - gt_vertices_flat[fg_mask_flat]
+        ).mean()
+        return loss
 
 
 class v8OBBLoss(v8DetectionLoss):
@@ -838,6 +903,12 @@ class v8OBBLoss(v8DetectionLoss):
             topk=10, num_classes=self.nc, alpha=0.5, beta=6.0
         )
         self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)
+        # Instantiate the extra losses (only used in obb mode)
+        self.rotation_loss = RotationLoss().to(self.device)
+        self.vertex_loss = VertexLoss().to(self.device)
+        # Hyperparameters for weighting these losses (adjust as needed)
+        self.lambda_rotation = 1.0
+        self.lambda_vertex = 1.0
 
     def preprocess(self, targets, batch_size, scale_tensor):
         """Preprocesses the target counts and matches with the input batch size to output a tensor."""
@@ -850,8 +921,7 @@ class v8OBBLoss(v8DetectionLoss):
             out = torch.zeros(batch_size, counts.max(), 6, device=self.device)
             for j in range(batch_size):
                 matches = i == j
-                n = matches.sum()
-                if n:
+                if n := matches.sum():
                     bboxes = targets[matches, 2:]
                     bboxes[..., :4].mul_(scale_tensor)
                     out[j, :n] = torch.cat([targets[matches, 1:2], bboxes], dim=-1)
@@ -859,7 +929,8 @@ class v8OBBLoss(v8DetectionLoss):
 
     def __call__(self, preds, batch):
         """Calculate and return the loss for the YOLO model."""
-        loss = torch.zeros(3, device=self.device)  # box, cls, dfl
+         # Initialize loss tensor with five components
+        loss = torch.zeros(5, device=self.device)  # [box, cls, dfl, rotation, vertex]
         feats, pred_angle = preds if isinstance(preds[0], list) else preds[1]
         batch_size = pred_angle.shape[
             0
@@ -899,7 +970,7 @@ class v8OBBLoss(v8DetectionLoss):
             raise TypeError(
                 "ERROR ❌ OBB dataset incorrectly formatted or not a OBB dataset.\n"
                 "This error can occur when incorrectly training a 'OBB' model on a 'detect' dataset, "
-                "i.e. 'yolo train model=yolov8n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
+                "i.e. 'yolo train model=yolo11n-obb.pt data=dota8.yaml'.\nVerify your dataset is a "
                 "correctly formatted 'OBB' dataset using 'data=dota8.yaml' "
                 "as an example.\nSee https://docs.ultralytics.com/datasets/obb/ for help."
             ) from e
@@ -947,8 +1018,23 @@ class v8OBBLoss(v8DetectionLoss):
         loss[0] *= self.hyp.box  # box gain
         loss[1] *= self.hyp.cls  # cls gain
         loss[2] *= self.hyp.dfl  # dfl gain
+        
+        # Compute additional losses only for OBB mode:
+        loss[3] = self.lambda_rotation * self.rotation_loss(pred_bboxes, target_bboxes, fg_mask)
+        loss[4] = self.lambda_vertex * self.vertex_loss(pred_bboxes, target_bboxes, fg_mask)
 
-        return loss.sum() * batch_size, loss.detach()  # loss(box, cls, dfl)
+        # Compute the total loss per sample (without batch scaling).
+        total_loss_per_sample = loss.sum()
+
+        # Compute total loss for backpropagation (scaled by batch size).
+        total_loss = total_loss_per_sample * batch_size
+
+        # Create an extended loss tensor including the total loss per sample as the 6th element.
+        loss_extended = torch.zeros(6, device=self.device)
+        loss_extended[:5] = loss
+        loss_extended[5] = total_loss_per_sample
+
+        return total_loss, loss_extended.detach()
 
     def bbox_decode(self, anchor_points, pred_dist, pred_angle):
         """

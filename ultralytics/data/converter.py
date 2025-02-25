@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import json
 import random
@@ -241,8 +241,10 @@ def convert_coco(
         ```python
         from ultralytics.data.converter import convert_coco
 
-        convert_coco("../datasets/coco/annotations/", use_segments=True, use_keypoints=False, cls91to80=True)
-        convert_coco("../datasets/lvis/annotations/", use_segments=True, use_keypoints=False, cls91to80=False, lvis=True)
+        convert_coco("../datasets/coco/annotations/", use_segments=True, use_keypoints=False, cls91to80=False)
+        convert_coco(
+            "../datasets/lvis/annotations/", use_segments=True, use_keypoints=False, cls91to80=False, lvis=True
+        )
         ```
 
     Output:
@@ -266,19 +268,19 @@ def convert_coco(
             # since LVIS val set contains images from COCO 2017 train in addition to the COCO 2017 val split.
             (fn / "train2017").mkdir(parents=True, exist_ok=True)
             (fn / "val2017").mkdir(parents=True, exist_ok=True)
-        with open(json_file) as f:
+        with open(json_file, encoding="utf-8") as f:
             data = json.load(f)
 
         # Create image dict
-        images = {f'{x["id"]:d}': x for x in data["images"]}
+        images = {f"{x['id']:d}": x for x in data["images"]}
         # Create image-annotations dict
-        imgToAnns = defaultdict(list)
+        annotations = defaultdict(list)
         for ann in data["annotations"]:
-            imgToAnns[ann["image_id"]].append(ann)
+            annotations[ann["image_id"]].append(ann)
 
         image_txt = []
         # Write labels file
-        for img_id, anns in TQDM(imgToAnns.items(), desc=f"Annotations {json_file}"):
+        for img_id, anns in TQDM(annotations.items(), desc=f"Annotations {json_file}"):
             img = images[f"{img_id:d}"]
             h, w = img["height"], img["width"]
             f = (
@@ -413,10 +415,8 @@ def convert_segment_masks_to_yolo_seg(masks_dir, output_dir, classes):
     """
     pixel_to_class_mapping = {i + 1: i for i in range(classes)}
     for mask_path in Path(masks_dir).iterdir():
-        if mask_path.suffix == ".png":
-            mask = cv2.imread(
-                str(mask_path), cv2.IMREAD_GRAYSCALE
-            )  # Read the mask image in grayscale
+        if mask_path.suffix in {".png", ".jpg"}:
+            mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)  # Read the mask image in grayscale
             img_height, img_width = mask.shape  # Get image dimensions
             LOGGER.info(f"Processing {mask_path} imgsz = {img_height} x {img_width}")
 

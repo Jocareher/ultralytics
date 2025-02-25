@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import math
 import random
@@ -275,13 +275,11 @@ class Compose:
             >>> compose[1] = NewTransform()  # Replace second transform
             >>> compose[0:2] = [NewTransform1(), NewTransform2()]  # Replace first two transforms
         """
-        assert isinstance(
-            index, (int, list)
-        ), f"The indices should be either list or int type but got {type(index)}"
+        assert isinstance(index, (int, list)), f"The indices should be either list or int type but got {type(index)}"
         if isinstance(index, list):
-            assert isinstance(
-                value, list
-            ), f"The indices should be the same type as values, but got {type(index)} and {type(value)}"
+            assert isinstance(value, list), (
+                f"The indices should be the same type as values, but got {type(index)} and {type(value)}"
+            )
         if isinstance(index, int):
             index, value = [index], [value]
         for i, v in zip(index, value):
@@ -453,7 +451,8 @@ class BaseMixTransform:
         """
         raise NotImplementedError
 
-    def _update_label_text(self, labels):
+    @staticmethod
+    def _update_label_text(labels):
         """
         Updates label text and class IDs for mixed labels in image augmentation.
 
@@ -663,7 +662,7 @@ class Mosaic(BaseMixTransform):
                 c = s - w, s + h0 - h, s, s + h0
 
             padw, padh = c[:2]
-            x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
+            x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coordinates
 
             img3[y1:y2, x1:x2] = img[
                 y1 - padh :, x1 - padw :
@@ -814,7 +813,7 @@ class Mosaic(BaseMixTransform):
                 c = s - w, s + h0 - hp - h, s, s + h0 - hp
 
             padw, padh = c[:2]
-            x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coords
+            x1, y1, x2, y2 = (max(x, 0) for x in c)  # allocate coordinates
 
             # Image
             img9[y1:y2, x1:x2] = img[
@@ -1355,7 +1354,8 @@ class RandomPerspective:
         labels["resized_shape"] = img.shape[:2]
         return labels
 
-    def box_candidates(self, box1, box2, wh_thr=2, ar_thr=100, area_thr=0.1, eps=1e-16):
+    @staticmethod
+    def box_candidates(box1, box2, wh_thr=2, ar_thr=100, area_thr=0.1, eps=1e-16):
         """
         Compute candidate boxes for further processing based on size and aspect ratio criteria.
 
@@ -1377,7 +1377,7 @@ class RandomPerspective:
             eps (float): Small epsilon value to prevent division by zero.
 
         Returns:
-            (numpy.ndarray): Boolean array of shape (n,) indicating which boxes are candidates.
+            (numpy.ndarray): Boolean array of shape (n) indicating which boxes are candidates.
                 True values correspond to boxes that meet all criteria.
 
         Examples:
@@ -1419,7 +1419,7 @@ class RandomHSV:
         >>> augmenter = RandomHSV(hgain=0.5, sgain=0.5, vgain=0.5)
         >>> image = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
         >>> labels = {"img": image}
-        >>> augmented_labels = augmenter(labels)
+        >>> augmenter(labels)
         >>> augmented_image = augmented_labels["img"]
     """
 
@@ -1436,7 +1436,7 @@ class RandomHSV:
 
         Examples:
             >>> hsv_aug = RandomHSV(hgain=0.5, sgain=0.5, vgain=0.5)
-            >>> augmented_image = hsv_aug(image)
+            >>> hsv_aug(image)
         """
         self.hgain = hgain
         self.sgain = sgain
@@ -1522,7 +1522,7 @@ class RandomFlip:
 
         Examples:
             >>> flip = RandomFlip(p=0.5, direction="horizontal")
-            >>> flip = RandomFlip(p=0.7, direction="vertical", flip_idx=[1, 0, 3, 2, 5, 4])
+            >>> flip_with_idx = RandomFlip(p=0.7, direction="vertical", flip_idx=[1, 0, 3, 2, 5, 4])
         """
         assert direction in {
             "horizontal",
@@ -1614,7 +1614,7 @@ class LetterBox:
     Attributes:
         new_shape (tuple): Target shape (height, width) for resizing.
         auto (bool): Whether to use minimum rectangle.
-        scaleFill (bool): Whether to stretch the image to new_shape.
+        scale_fill (bool): Whether to stretch the image to new_shape.
         scaleup (bool): Whether to allow scaling up. If False, only scale down.
         stride (int): Stride for rounding padding.
         center (bool): Whether to center the image or align to top-left.
@@ -1629,15 +1629,7 @@ class LetterBox:
         >>> updated_instances = result["instances"]
     """
 
-    def __init__(
-        self,
-        new_shape=(640, 640),
-        auto=False,
-        scaleFill=False,
-        scaleup=True,
-        center=True,
-        stride=32,
-    ):
+    def __init__(self, new_shape=(640, 640), auto=False, scale_fill=False, scaleup=True, center=True, stride=32):
         """
         Initialize LetterBox object for resizing and padding images.
 
@@ -1647,7 +1639,7 @@ class LetterBox:
         Args:
             new_shape (Tuple[int, int]): Target size (height, width) for the resized image.
             auto (bool): If True, use minimum rectangle to resize. If False, use new_shape directly.
-            scaleFill (bool): If True, stretch the image to new_shape without padding.
+            scale_fill (bool): If True, stretch the image to new_shape without padding.
             scaleup (bool): If True, allow scaling up. If False, only scale down.
             center (bool): If True, center the placed image. If False, place image in top-left corner.
             stride (int): Stride of the model (e.g., 32 for YOLOv5).
@@ -1655,17 +1647,17 @@ class LetterBox:
         Attributes:
             new_shape (Tuple[int, int]): Target size for the resized image.
             auto (bool): Flag for using minimum rectangle resizing.
-            scaleFill (bool): Flag for stretching image without padding.
+            scale_fill (bool): Flag for stretching image without padding.
             scaleup (bool): Flag for allowing upscaling.
             stride (int): Stride value for ensuring image size is divisible by stride.
 
         Examples:
-            >>> letterbox = LetterBox(new_shape=(640, 640), auto=False, scaleFill=False, scaleup=True, stride=32)
+            >>> letterbox = LetterBox(new_shape=(640, 640), auto=False, scale_fill=False, scaleup=True, stride=32)
             >>> resized_img = letterbox(original_img)
         """
         self.new_shape = new_shape
         self.auto = auto
-        self.scaleFill = scaleFill
+        self.scale_fill = scale_fill
         self.scaleup = scaleup
         self.stride = stride
         self.center = center  # Put the image in the middle or top-left
@@ -1711,7 +1703,7 @@ class LetterBox:
         dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
         if self.auto:  # minimum rectangle
             dw, dh = np.mod(dw, self.stride), np.mod(dh, self.stride)  # wh padding
-        elif self.scaleFill:  # stretch
+        elif self.scale_fill:  # stretch
             dw, dh = 0.0, 0.0
             new_unpad = (new_shape[1], new_shape[0])
             ratio = (
@@ -1734,14 +1726,15 @@ class LetterBox:
             labels["ratio_pad"] = (labels["ratio_pad"], (left, top))  # for evaluation
 
         if len(labels):
-            labels = self._update_labels(labels, ratio, dw, dh)
+            labels = self._update_labels(labels, ratio, left, top)
             labels["img"] = img
             labels["resized_shape"] = new_shape
             return labels
         else:
             return img
 
-    def _update_labels(self, labels, ratio, padw, padh):
+    @staticmethod
+    def _update_labels(labels, ratio, padw, padh):
         """
         Updates labels after applying letterboxing to an image.
 
@@ -2001,7 +1994,7 @@ class Albumentations:
                 A.CLAHE(p=0.01),
                 A.RandomBrightnessContrast(p=0.0),
                 A.RandomGamma(p=0.0),
-                A.ImageCompression(quality_lower=75, p=0.0),
+                A.ImageCompression(quality_range=(75, 100), p=0.0),
             ]
 
             # Compose transforms
@@ -2018,12 +2011,10 @@ class Albumentations:
                 if self.contains_spatial
                 else A.Compose(T)
             )
-            LOGGER.info(
-                prefix
-                + ", ".join(
-                    f"{x}".replace("always_apply=False, ", "") for x in T if x.p
-                )
-            )
+            if hasattr(self.transform, "set_random_seed"):
+                # Required for deterministic transforms in albumentations>=1.4.21
+                self.transform.set_random_seed(torch.initial_seed())
+            LOGGER.info(prefix + ", ".join(f"{x}".replace("always_apply=False, ", "") for x in T if x.p))
         except ImportError:  # package not installed, skip
             pass
         except Exception as e:
@@ -2187,7 +2178,7 @@ class Format:
         Returns:
             (Dict): A dictionary with formatted data, including:
                 - 'img': Formatted image tensor.
-                - 'cls': Class labels tensor.
+                - 'cls': Class label's tensor.
                 - 'bboxes': Bounding boxes tensor in the specified format.
                 - 'masks': Instance masks tensor (if return_mask is True).
                 - 'keypoints': Keypoints tensor (if return_keypoint is True).
@@ -2287,10 +2278,9 @@ class Format:
             h (int): Height of the image.
 
         Returns:
-            (tuple): Tuple containing:
-                masks (numpy.ndarray): Bitmap masks with shape (N, H, W) or (1, H, W) if mask_overlap is True.
-                instances (Instances): Updated instances object with sorted segments if mask_overlap is True.
-                cls (numpy.ndarray): Updated class labels, sorted if mask_overlap is True.
+            masks (numpy.ndarray): Bitmap masks with shape (N, H, W) or (1, H, W) if mask_overlap is True.
+            instances (Instances): Updated instances object with sorted segments if mask_overlap is True.
+            cls (numpy.ndarray): Updated class labels, sorted if mask_overlap is True.
 
         Notes:
             - If self.mask_overlap is True, masks are overlapped and sorted by area.
@@ -2463,7 +2453,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
     Args:
         dataset (Dataset): The dataset object containing image data and annotations.
         imgsz (int): The target image size for resizing.
-        hyp (Dict): A dictionary of hyperparameters controlling various aspects of the transformations.
+        hyp (Namespace): A dictionary of hyperparameters controlling various aspects of the transformations.
         stretch (bool): If True, applies stretching to the image. If False, uses LetterBox resizing.
 
     Returns:
@@ -2471,8 +2461,9 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
 
     Examples:
         >>> from ultralytics.data.dataset import YOLODataset
+        >>> from ultralytics.utils import IterableSimpleNamespace
         >>> dataset = YOLODataset(img_path="path/to/images", imgsz=640)
-        >>> hyp = {"mosaic": 1.0, "copy_paste": 0.5, "degrees": 10.0, "translate": 0.2, "scale": 0.9}
+        >>> hyp = IterableSimpleNamespace(mosaic=1.0, copy_paste=0.5, degrees=10.0, translate=0.2, scale=0.9)
         >>> transforms = v8_transforms(dataset, imgsz=640, hyp=hyp)
         >>> augmented_data = transforms(dataset[0])
     """
