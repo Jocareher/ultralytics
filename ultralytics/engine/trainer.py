@@ -1,9 +1,9 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """
 Train a model on a dataset.
 
 Usage:
-    $ yolo mode=train model=yolov8n.pt data=coco8.yaml imgsz=640 epochs=100 batch=16
+    $ yolo mode=train model=yolo11n.pt data=coco8.yaml imgsz=640 epochs=100 batch=16
 """
 
 import gc
@@ -58,6 +58,7 @@ from ultralytics.utils.torch_utils import (
     select_device,
     strip_optimizer,
     torch_distributed_zero_first,
+    unset_deterministic,
 )
 
 
@@ -139,12 +140,8 @@ class BaseTrainer:
             )
 
         # Model and Dataset
-        self.model = check_model_file_from_stem(
-            self.args.model
-        )  # add suffix, i.e. yolov8n -> yolov8n.pt
-        with torch_distributed_zero_first(
-            LOCAL_RANK
-        ):  # avoid auto-downloading dataset multiple times
+        self.model = check_model_file_from_stem(self.args.model)  # add suffix, i.e. yolo11n -> yolo11n.pt
+        with torch_distributed_zero_first(LOCAL_RANK):  # avoid auto-downloading dataset multiple times
             self.trainset, self.testset = self.get_dataset()
         self.ema = None
 
@@ -219,7 +216,7 @@ class BaseTrainer:
             # Command
             cmd, file = generate_ddp_command(world_size, self)
             try:
-                LOGGER.info(f'{colorstr("DDP:")} debug command {" ".join(cmd)}')
+                LOGGER.info(f"{colorstr('DDP:')} debug command {' '.join(cmd)}")
                 subprocess.run(cmd, check=True)
             except Exception as e:
                 raise e
@@ -388,12 +385,7 @@ class BaseTrainer:
             f"Image sizes {self.args.imgsz} train, {self.args.imgsz} val\n"
             f"Using {self.train_loader.num_workers * (world_size or 1)} dataloader workers\n"
             f"Logging results to {colorstr('bold', self.save_dir)}\n"
-            f"Starting training for "
-            + (
-                f"{self.args.time} hours..."
-                if self.args.time
-                else f"{self.epochs} epochs..."
-            )
+            f"Starting training for " + (f"{self.args.time} hours..." if self.args.time else f"{self.epochs} epochs...")
         )
         if self.args.close_mosaic:
             base_idx = (self.epochs - self.args.close_mosaic) * nb
@@ -585,6 +577,7 @@ class BaseTrainer:
                 self.plot_metrics()
             self.run_callbacks("on_train_end")
         self._clear_memory()
+        unset_deterministic()
         self.run_callbacks("teardown")
 
     def auto_batch(self, max_num_obj=0):
@@ -605,7 +598,7 @@ class BaseTrainer:
             memory = 0
         else:
             memory = torch.cuda.memory_reserved()
-        return memory / 1e9
+        return memory / (2**30)
 
     def _clear_memory(self):
         """Clear accelerator memory on different platforms."""
@@ -687,6 +680,10 @@ class BaseTrainer:
                 emojis(f"Dataset '{clean_url(self.args.data)}' error ❌ {e}")
             ) from e
         self.data = data
+        if self.args.single_cls:
+            LOGGER.info("Overriding class names with single class.")
+            self.data["names"] = {0: "item"}
+            self.data["nc"] = 1
         return data["train"], data.get("val") or data.get("test")
 
     def setup_model(self):
@@ -923,13 +920,9 @@ class BaseTrainer:
                 f"ignoring 'lr0={self.args.lr0}' and 'momentum={self.args.momentum}' and "
                 f"determining best 'optimizer', 'lr0' and 'momentum' automatically... "
             )
-            nc = getattr(model, "nc", 10)  # number of classes
-            lr_fit = round(
-                0.002 * 5 / (4 + nc), 6
-            )  # lr0 fit equation to 6 decimal places
-            name, lr, momentum = (
-                ("SGD", 0.01, 0.9) if iterations > 10000 else ("AdamW", lr_fit, 0.9)
-            )
+            nc = self.data.get("nc", 10)  # number of classes
+            lr_fit = round(0.002 * 5 / (4 + nc), 6)  # lr0 fit equation to 6 decimal places
+            name, lr, momentum = ("SGD", 0.01, 0.9) if iterations > 10000 else ("AdamW", lr_fit, 0.9)
             self.args.warmup_bias_lr = 0.0  # no higher than 0.01 for Adam
 
         for module_name, module in model.named_modules():

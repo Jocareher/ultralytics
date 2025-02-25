@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import os
 from pathlib import Path
@@ -88,19 +88,12 @@ class DetectionValidator(BaseValidator):
                 or val.endswith(f"{os.sep}test-dev2017.txt")
             )
         )  # is COCO
-        self.is_lvis = (
-            isinstance(val, str) and "lvis" in val and not self.is_coco
-        )  # is LVIS
-        self.class_map = (
-            converter.coco80_to_coco91_class()
-            if self.is_coco
-            else list(range(len(model.names)))
-        )
-        self.args.save_json |= (
-            self.args.val and (self.is_coco or self.is_lvis) and not self.training
-        )  # run final val
+        self.is_lvis = isinstance(val, str) and "lvis" in val and not self.is_coco  # is LVIS
+        self.class_map = converter.coco80_to_coco91_class() if self.is_coco else list(range(1, len(model.names) + 1))
+        self.args.save_json |= self.args.val and (self.is_coco or self.is_lvis) and not self.training  # run final val
         self.names = model.names
         self.nc = len(model.names)
+        self.end2end = getattr(model, "end2end", False)
         self.metrics.names = self.names
         self.metrics.plot = self.args.plots
         self.confusion_matrix = ConfusionMatrix(nc=self.nc, conf=self.args.conf)
@@ -127,9 +120,12 @@ class DetectionValidator(BaseValidator):
             self.args.conf,
             self.args.iou,
             labels=self.lb,
+            nc=self.nc,
             multi_label=True,
             agnostic=self.args.single_cls or self.args.agnostic_nms,
             max_det=self.args.max_det,
+            end2end=self.end2end,
+            rotated=self.args.task == "obb",
         )
 
     def _prepare_batch(self, si, batch):
@@ -215,7 +211,7 @@ class DetectionValidator(BaseValidator):
                     predn,
                     self.args.save_conf,
                     pbatch["ori_shape"],
-                    self.save_dir / "labels" / f'{Path(batch["im_file"][si]).stem}.txt',
+                    self.save_dir / "labels" / f"{Path(batch['im_file'][si]).stem}.txt",
                 )
 
     def finalize_metrics(self, *args, **kwargs):
@@ -359,8 +355,7 @@ class DetectionValidator(BaseValidator):
             self.jdict.append(
                 {
                     "image_id": image_id,
-                    "category_id": self.class_map[int(p[5])]
-                    + (1 if self.is_lvis else 0),  # index starts from 1 if it's lvis
+                    "category_id": self.class_map[int(p[5])],
                     "bbox": [round(x, 3) for x in b],
                     "score": round(p[4], 5),
                 }
