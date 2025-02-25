@@ -767,20 +767,6 @@ def profile(input, ops, n=10, device=None, max_num_obj=0):
                         t[2] = float("nan")
                     tf += (t[1] - t[0]) * 1000 / n  # ms per op forward
                     tb += (t[2] - t[1]) * 1000 / n  # ms per op backward
-<<<<<<< HEAD
-                    if max_num_obj:  # simulate training with predictions per image grid (for AutoBatch)
-                        torch.randn(
-                            x.shape[0],
-                            max_num_obj,
-                            int(sum([(x.shape[-1] / s) * (x.shape[-2] / s) for s in m.stride.tolist()])),
-                            device=device,
-                            dtype=torch.float32,
-                        )
-                mem = torch.cuda.memory_reserved() / 1e9 if torch.cuda.is_available() else 0  # (GB)
-                s_in, s_out = (tuple(x.shape) if isinstance(x, torch.Tensor) else "list" for x in (x, y))  # shapes
-                p = sum(x.numel() for x in m.parameters()) if isinstance(m, nn.Module) else 0  # parameters
-                LOGGER.info(f"{p:12}{flops:12.4g}{mem:>14.3f}{tf:14.4g}{tb:14.4g}{str(s_in):>24s}{str(s_out):>24s}")
-=======
                 mem = (
                     torch.cuda.memory_reserved() / 1e9
                     if torch.cuda.is_available()
@@ -798,7 +784,6 @@ def profile(input, ops, n=10, device=None, max_num_obj=0):
                 LOGGER.info(
                     f"{p:12}{flops:12.4g}{mem:>14.3f}{tf:14.4g}{tb:14.4g}{str(s_in):>24s}{str(s_out):>24s}"
                 )
->>>>>>> features
                 results.append([p, flops, mem, tf, tb, s_in, s_out])
             except Exception as e:
                 LOGGER.info(e)

@@ -327,17 +327,8 @@ def _log_plots(experiment, trainer):
             for plots in EVALUATION_PLOT_NAMES
             for prefix in POSE_METRICS_PLOT_PREFIX
         ]
-<<<<<<< HEAD
     elif isinstance(trainer.validator.metrics, (DetMetrics, OBBMetrics)):
         plot_filenames = [trainer.save_dir / f"{plots}.png" for plots in EVALUATION_PLOT_NAMES]
-=======
-    elif isinstance(trainer.validator.metrics, DetMetrics) or isinstance(
-        trainer.validator.metrics, OBBMetrics
-    ):
-        plot_filenames = [
-            trainer.save_dir / f"{plots}.png" for plots in EVALUATION_PLOT_NAMES
-        ]
->>>>>>> features
 
     if plot_filenames is not None:
         _log_images(experiment, plot_filenames, None)

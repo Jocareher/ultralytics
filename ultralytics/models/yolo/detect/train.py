@@ -166,7 +166,6 @@ class DetectionTrainer(BaseTrainer):
             [lb["bboxes"] for lb in self.train_loader.dataset.labels], 0
         )
         cls = np.concatenate([lb["cls"] for lb in self.train_loader.dataset.labels], 0)
-<<<<<<< HEAD
         plot_labels(boxes, cls.squeeze(), names=self.data["names"], save_dir=self.save_dir, on_plot=self.on_plot)
 
     def auto_batch(self):
@@ -175,12 +174,3 @@ class DetectionTrainer(BaseTrainer):
         # 4 for mosaic augmentation
         max_num_obj = max(len(l["cls"]) for l in train_dataset.labels) * 4
         return super().auto_batch(max_num_obj)
-=======
-        plot_labels(
-            boxes,
-            cls.squeeze(),
-            names=self.data["names"],
-            save_dir=self.save_dir,
-            on_plot=self.on_plot,
-        )
->>>>>>> features

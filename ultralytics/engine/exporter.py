@@ -104,16 +104,7 @@ from ultralytics.utils.downloads import (
 )
 from ultralytics.utils.files import file_size, spaces_in_path
 from ultralytics.utils.ops import Profile
-<<<<<<< HEAD
 from ultralytics.utils.torch_utils import TORCH_1_13, get_latest_opset, select_device
-=======
-from ultralytics.utils.torch_utils import (
-    TORCH_1_13,
-    get_latest_opset,
-    select_device,
-    smart_inference_mode,
-)
->>>>>>> features
 
 
 def export_formats():
@@ -249,13 +240,9 @@ class Exporter:
             edgetpu,
             tfjs,
             paddle,
-<<<<<<< HEAD
             mnn,
             ncnn,
             imx,
-=======
-            ncnn,
->>>>>>> features
         ) = flags  # export booleans
         is_tf_format = any((saved_model, pb, tflite, edgetpu, tfjs))
 
@@ -304,19 +291,10 @@ class Exporter:
         if self.args.int8 and engine:
             self.args.dynamic = True  # enforce dynamic to export TensorRT INT8
         if self.args.optimize:
-<<<<<<< HEAD
             assert not ncnn, "optimize=True not compatible with format='ncnn', i.e. use optimize=False"
             assert self.device.type == "cpu", "optimize=True not compatible with cuda devices, i.e. use device='cpu'"
         if self.args.int8 and tflite:
             assert not getattr(model, "end2end", False), "TFLite INT8 export not supported for end2end models."
-=======
-            assert (
-                not ncnn
-            ), "optimize=True not compatible with format='ncnn', i.e. use optimize=False"
-            assert (
-                self.device.type == "cpu"
-            ), "optimize=True not compatible with cuda devices, i.e. use device='cpu'"
->>>>>>> features
         if edgetpu:
             if not LINUX:
                 raise SystemError(
@@ -1055,14 +1033,7 @@ class Exporter:
                 )
             profile = builder.create_optimization_profile()
             min_shape = (1, shape[1], 32, 32)  # minimum input shape
-<<<<<<< HEAD
             max_shape = (*shape[:2], *(int(max(1, self.args.workspace) * d) for d in shape[2:]))  # max input shape
-=======
-            max_shape = (
-                *shape[:2],
-                *(max(1, self.args.workspace) * d for d in shape[2:]),
-            )  # max input shape
->>>>>>> features
             for inp in inputs:
                 profile.set_shape(inp.name, min=min_shape, opt=shape, max=max_shape)
             config.add_optimization_profile(profile)
