@@ -31,11 +31,7 @@ def check_train_batch_size(model, imgsz=640, amp=True, batch=-1, max_num_obj=1):
     """
     with autocast(enabled=amp):
         return autobatch(
-<<<<<<< HEAD
             deepcopy(model).train(), imgsz, fraction=batch if 0.0 < batch < 1.0 else 0.6, max_num_obj=max_num_obj
-=======
-            deepcopy(model).train(), imgsz, fraction=batch if 0.0 < batch < 1.0 else 0.6
->>>>>>> features
         )
 
 

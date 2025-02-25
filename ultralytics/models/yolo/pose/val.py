@@ -150,17 +150,9 @@ class PoseValidator(DetectionValidator):
             # Evaluate
             if nl:
                 stat["tp"] = self._process_batch(predn, bbox, cls)
-<<<<<<< HEAD
                 stat["tp_p"] = self._process_batch(predn, bbox, cls, pred_kpts, pbatch["kpts"])
             if self.args.plots:
                 self.confusion_matrix.process_batch(predn, bbox, cls)
-=======
-                stat["tp_p"] = self._process_batch(
-                    predn, bbox, cls, pred_kpts, pbatch["kpts"]
-                )
-                if self.args.plots:
-                    self.confusion_matrix.process_batch(predn, bbox, cls)
->>>>>>> features
 
             for k in self.stats.keys():
                 self.stats[k].append(stat[k])
